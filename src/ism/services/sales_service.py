@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, Optional
 
+from collections import Counter
 from ism.domain.errors import (
     FxUnavailableError,
     InsufficientStockError,
@@ -25,15 +26,23 @@ class SalesService:
         if not items:
             raise ValidationError("Cart is empty.")
 
-        # Validate stock
+        # Validate items and aggregate qty by product to avoid overselling
+        qty_by_product: Counter[int] = Counter()
         for it in items:
             qty = int(it["qty"])
+            unit_price = float(it["unit_price_usd"])
             if qty <= 0:
                 raise ValidationError("Qty must be >= 1.")
-            prod = self.repo.get_product_by_id(int(it["product_id"]))
+            if unit_price < 0:
+                raise ValidationError("Unit price must be >= 0.")
+
+            product_id = int(it["product_id"])
+            qty_by_product[product_id] += qty
+
+            prod = self.repo.get_product_by_id(product_id)
             if not prod:
                 raise NotFoundError("Product not found.")
-            if qty > int(prod.stock):
+            if qty_by_product[product_id] > int(prod.stock):
                 raise InsufficientStockError(f"Not enough stock for {prod.sku}. Available: {prod.stock}")
 
         try:

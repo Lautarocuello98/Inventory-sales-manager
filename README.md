@@ -43,7 +43,7 @@ inventory-sales-manager/
         │   └── errors.py
         │
         ├── repositories/
-        │   └── sqlite_repository.py
+        │   └── sqlite_repo.py
         │
         ├── services/
         │   ├── fx_service.py
@@ -254,7 +254,7 @@ ism
 
 ## 🧠 Technical Stack
 
-- Python 3.12+
+- Python 3.10+
 - Tkinter
 - SQLite
 - requests
