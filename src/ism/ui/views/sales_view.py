@@ -3,6 +3,10 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 class SalesView:
@@ -215,6 +219,7 @@ class SalesView:
         try:
             sale_id = self.app.sales.create_sale(notes, items)
         except Exception as e:
+            log.exception("Sale confirmation failed: %s", e)
             messagebox.showerror("Sale failed", str(e))
             self.app.toast("Sale failed.", kind="error")
             return

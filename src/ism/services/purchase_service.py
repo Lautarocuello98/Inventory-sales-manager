@@ -37,26 +37,17 @@ class PurchaseService:
             total_usd += unit_cost * qty
 
         dt_iso = datetime.now().replace(microsecond=0).isoformat(sep=" ")
-        purchase_id = self.repo.create_purchase_header(dt_iso, vendor, total_usd, notes)
-
-        # Insert lines + update inventory
-        for it in items:
-            pid = int(it["product_id"])
-            qty = int(it["qty"])
-            unit_cost = float(it["unit_cost_usd"])
-
-            self.repo.add_purchase_item(purchase_id, pid, qty, unit_cost)
-
-            prod = self.repo.get_product_by_id(pid)
-            if not prod:
-                raise NotFoundError("Product not found/active.")
-
-            old_stock = int(prod.stock)
-            old_cost = float(prod.cost_usd)
-            new_stock = old_stock + qty
-            new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock > 0 else unit_cost
-
-            self.repo.update_product_stock_and_cost(pid, new_stock, new_cost)
+        
+        try:
+            purchase_id = self.repo.create_purchase_with_items(
+                datetime_iso=dt_iso,
+                vendor=vendor,
+                total_usd=total_usd,
+                notes=notes,
+                items=items,
+            )
+        except ValueError as e:
+            raise NotFoundError(str(e))
 
         return int(purchase_id)
 

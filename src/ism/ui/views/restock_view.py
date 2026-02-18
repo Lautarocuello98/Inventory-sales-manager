@@ -3,7 +3,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+import logging
 
+log = logging.getLogger(__name__)
 
 class RestockView:
     def __init__(self, notebook: ttk.Notebook, app):
@@ -222,6 +224,7 @@ class RestockView:
         try:
             purchase_id = self.app.purchases.create_purchase(vendor=vendor, notes=notes, items=items)
         except Exception as e:
+            log.exception("Restock confirmation failed: %s", e)
             messagebox.showerror("Restock failed", str(e))
             self.app.toast("Restock failed.", kind="error")
             return

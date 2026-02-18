@@ -51,7 +51,13 @@ class FxService:
                 last_err = e
                 log.warning("FX fetch failed for %s: %s", url, e)
 
-        raise FxUnavailableError(f"FX fetch failed. Last error: {last_err}")
+        latest = self.repo.get_latest_fx_rate()
+        if latest is not None:
+            log.warning("Using cached FX rate from previous date: %.4f", float(latest))
+            self.repo.set_fx_rate(d_iso, float(latest))
+            return float(latest)
+
+        raise FxUnavailableError(f"FX fetch failed and no cached rate available. Last error: {last_err}")
 
     def get_today_rate(self) -> float:
         return self.get_rate_for_date(date.today())

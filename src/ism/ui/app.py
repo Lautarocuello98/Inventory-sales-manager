@@ -84,8 +84,8 @@ class App(tk.Tk):
             style.configure("Title.TLabel", font=("Segoe UI", 12, "bold"))
             style.configure("KPI.TLabel", font=("Segoe UI", 10))
             style.configure("KPIValue.TLabel", font=("Segoe UI", 11, "bold"))
-        except Exception:
-            pass
+        except Exception as e:
+            log.exception("UI style setup failed: %s", e)
 
     def _build_topbar(self):
         top = ttk.Frame(self)
@@ -214,8 +214,8 @@ class App(tk.Tk):
             self.k_low.config(text=str(low_count))
             self.k_rev7.config(text=f"{float(rev_usd):.2f}")
             self.k_profit7.config(text=f"{float(profit_usd):.2f}")
-        except Exception:
-            pass
+        except Exception as e:
+            log.exception("KPI refresh failed: %s", e)
 
     def refresh_low_stock_panel(self):
         self.low_list.delete(0, tk.END)

@@ -226,6 +226,15 @@ class SqliteRepository:
         """, (date_iso, float(usd_ars)))
         conn.commit()
         conn.close()
+    
+    def get_latest_fx_rate(self) -> Optional[float]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT usd_ars FROM fx_rates ORDER BY date DESC LIMIT 1")
+        row = cur.fetchone()
+        conn.close()
+        return float(row[0]) if row else None
+
 
     # ---------- Sales ----------
     def create_sale(self, datetime_iso: str, fx_usd_ars: float, notes: Optional[str],
@@ -373,6 +382,62 @@ class SqliteRepository:
 
         conn.close()
         return (int(c), float(total_usd), float(total_ars), float(margin_usd)), top
+    
+
+
+    def create_purchase_with_items(self, datetime_iso: str, vendor: Optional[str], total_usd: float,
+                                   notes: Optional[str], items: Iterable[dict]) -> int:
+        """
+        Atomic purchase creation: header + items + product stock/cost updates in one transaction.
+        items: [{product_id, qty, unit_cost_usd}]
+        """
+        conn = self._conn()
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                INSERT INTO purchases (datetime, vendor, total_usd, notes)
+                VALUES (?, ?, ?, ?)
+            """, (datetime_iso, vendor, float(total_usd), notes))
+            purchase_id = int(cur.lastrowid)
+
+            for it in items:
+                pid = int(it["product_id"])
+                qty = int(it["qty"])
+                unit_cost = float(it["unit_cost_usd"])
+
+                cur.execute("""
+                    SELECT stock, cost_usd
+                    FROM products
+                    WHERE id = ? AND active = 1
+                """, (pid,))
+                row = cur.fetchone()
+                if not row:
+                    raise ValueError(f"Product not found/active: {pid}")
+
+                old_stock = int(row[0])
+                old_cost = float(row[1])
+                new_stock = old_stock + qty
+                new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock > 0 else unit_cost
+
+                cur.execute("""
+                    INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_usd)
+                    VALUES (?, ?, ?, ?)
+                """, (purchase_id, pid, qty, unit_cost))
+
+                cur.execute("""
+                    UPDATE products
+                    SET stock = ?, cost_usd = ?
+                    WHERE id = ? AND active = 1
+                """, (new_stock, new_cost, pid))
+
+            conn.commit()
+            return purchase_id
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
 
     # ---------- Purchases ----------
     def create_purchase_header(self, datetime_iso: str, vendor: Optional[str], total_usd: float, notes: Optional[str]) -> int:

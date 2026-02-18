@@ -3,7 +3,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date, timedelta
+import logging
 
+log = logging.getLogger(__name__)
 
 class ReportsView:
     def __init__(self, notebook: ttk.Notebook, app):
@@ -60,6 +62,7 @@ class ReportsView:
             self.app.toast(f"Excel import: {ok} ok, {skipped} skipped.", kind="success")
             self.app.refresh_all(silent_fx=True)
         except Exception as e:
+            log.exception("Excel import failed: %s", e)
             messagebox.showerror("Import error", str(e))
             self.app.toast("Excel import failed.", kind="error")
 
@@ -82,5 +85,6 @@ class ReportsView:
             messagebox.showinfo("Export done", f"Report saved:\n{path}")
             self.app.toast("Excel report exported.", kind="success")
         except Exception as e:
+            log.exception("Excel export failed: %s", e)
             messagebox.showerror("Export error", str(e))
             self.app.toast("Excel export failed.", kind="error")

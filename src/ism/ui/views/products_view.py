@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 class ProductsView:
@@ -91,10 +95,12 @@ class ProductsView:
             stock = self._parse_int(self.p_stock.get(), "Stock", 0)
             min_stock = self._parse_int(self.p_min.get(), "Min stock", 0)
 
-            pid = self.app.inventory.add_product(sku, name, cost, price, stock, min_stock)
+            # Create with stock=0 first. If initial stock is provided,
+            # it is applied as a purchase so inventory history remains consistent.
+            pid = self.app.inventory.add_product(sku, name, cost, price, 0, min_stock)
 
             # If user set initial stock, log as an INITIAL purchase (so it appears in history)
-            if stock > 0 and cost > 0:
+            if stock > 0:
                 prod = self.app.inventory.get_product_by_sku(sku)
                 self.app.purchases.create_purchase(
                     vendor="INITIAL",
@@ -109,6 +115,7 @@ class ProductsView:
             self.app.refresh_all(silent_fx=True)
 
         except Exception as e:
+            log.exception("Failed to add product: %s", e)
             messagebox.showerror("Error", str(e))
             self.app.toast("Failed to add product.", kind="error")
 
