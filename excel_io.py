@@ -13,12 +13,10 @@ from db import (
 )
 
 
-# ---------------- IMPORT PRODUCTS ----------------
-
 def import_products_from_excel(path: str) -> tuple[int, int]:
     """
     Headers required:
-    sku | name | cost_usd | price_usd | stock | min_stock
+      sku | name | cost_usd | price_usd | stock | min_stock
     """
     wb = load_workbook(path)
     ws = wb.active
@@ -65,8 +63,6 @@ def import_products_from_excel(path: str) -> tuple[int, int]:
     return ok, skipped
 
 
-# ---------------- EXPORT REPORT (3 sheets) ----------------
-
 def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
     wb = Workbook()
 
@@ -94,19 +90,18 @@ def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
         )
         ws.add_table(tab)
 
-    # ---- Pull DB data ----
     totals, _ = sales_summary_between(start_iso, end_iso)
     sales_count, revenue_usd, revenue_ars, profit_usd = totals
 
-    sales_rows = list_sales_between(start_iso, end_iso)  # (id, datetime, total_usd, fx, total_ars, notes)
-    purchases_rows = list_purchases_between(start_iso, end_iso)  # (id, datetime, vendor, total_usd, notes)
+    sales_rows = list_sales_between(start_iso, end_iso)
+    purchases_rows = list_purchases_between(start_iso, end_iso)
+
     spent_usd = sum(float(p[3]) for p in purchases_rows) if purchases_rows else 0.0
     net_usd = float(profit_usd) - float(spent_usd)
 
-    # ===================== 1) SUMMARY =====================
+    # -------- 1) Summary --------
     ws = wb.active
     ws.title = "Summary"
-
     ws["A1"] = "Summary"
     ws["A1"].font = Font(bold=True, size=14)
 
@@ -132,7 +127,7 @@ def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
 
     set_widths(ws, {"A": 28, "B": 34})
 
-    # ===================== 2) SALES DETAIL =====================
+    # -------- 2) Sales Detail --------
     ws2 = wb.create_sheet("Sales Detail")
     ws2.append([
         "Sale ID", "Datetime", "Notes",
@@ -146,11 +141,8 @@ def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
     for s in sales_rows:
         sale_id, dt, _tot_usd, _fx, _tot_ars, notes = s
         items = sale_items_for_sale(int(sale_id))
-
         for it in items:
-            # (sku, name, qty, unit_price_usd, line_total_usd, cost_usd, line_margin_usd)
             sku, name, qty, unit_price, line_total, cost_usd, line_profit = it
-
             qty = int(qty)
             unit_price = float(unit_price)
             cost_usd = float(cost_usd)
@@ -189,7 +181,7 @@ def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
     if ws2.max_row >= 2:
         add_table(ws2, "SalesDetail", 1, 1, ws2.max_row, 11)
 
-    # ===================== 3) PURCHASES =====================
+    # -------- 3) Purchases --------
     ws3 = wb.create_sheet("Purchases")
     ws3["A1"] = "Purchases / Restock"
     ws3["A1"].font = Font(bold=True, size=14)
@@ -200,23 +192,19 @@ def export_sales_report_excel(path: str, start_iso: str, end_iso: str) -> None:
 
     ws3.append([])
 
-    header_row = 5
     ws3.append([
         "Purchase ID", "Datetime", "Vendor", "Notes",
         "SKU", "Product Name",
         "Qty", "Unit Cost USD", "Line Total USD"
     ])
-    bold_row(ws3, header_row)
+    bold_row(ws3, 5)
 
-    out_row = header_row + 1
+    out_row = 6
     for p in purchases_rows:
-        purchase_id, dt, vendor, total_usd, notes = p
+        purchase_id, dt, vendor, _total_usd, notes = p
         items = purchase_items_for_purchase(int(purchase_id))
-
         for it in items:
-            # (sku, name, qty, unit_cost_usd, line_total_usd)
             sku, name, qty, unit_cost, line_total = it
-
             qty = int(qty)
             unit_cost = float(unit_cost)
             line_total = float(line_total)

@@ -57,7 +57,6 @@ def init_db() -> None:
     )
     """)
 
-    # Purchases / Restock
     cur.execute("""
     CREATE TABLE IF NOT EXISTS purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,9 +148,6 @@ def get_product_by_sku(sku: str):
 # ---------------- Sales ----------------
 
 def create_sale(datetime_iso: str, fx_usd_ars: float, notes: str | None, items: Iterable[dict]) -> int:
-    """
-    items: {product_id, qty, unit_price_usd}
-    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -168,9 +164,7 @@ def create_sale(datetime_iso: str, fx_usd_ars: float, notes: str | None, items: 
             conn.close()
             raise ValueError("Not enough stock for one of the items.")
 
-    total_usd = 0.0
-    for it in items:
-        total_usd += float(it["unit_price_usd"]) * int(it["qty"])
+    total_usd = sum(float(it["unit_price_usd"]) * int(it["qty"]) for it in items)
     total_ars = total_usd * float(fx_usd_ars)
 
     cur.execute("""
@@ -185,7 +179,8 @@ def create_sale(datetime_iso: str, fx_usd_ars: float, notes: str | None, items: 
             VALUES (?, ?, ?, ?)
         """, (sale_id, it["product_id"], int(it["qty"]), float(it["unit_price_usd"])))
 
-        cur.execute("UPDATE products SET stock = stock - ? WHERE id = ?", (int(it["qty"]), it["product_id"]))
+        cur.execute("UPDATE products SET stock = stock - ? WHERE id = ?",
+                    (int(it["qty"]), it["product_id"]))
 
     conn.commit()
     conn.close()
@@ -238,9 +233,6 @@ def sale_items_for_sale(sale_id: int):
 
 
 def sales_summary_between(start_iso: str, end_iso: str):
-    """
-    totals: (sales_count, total_usd, total_ars, margin_usd)
-    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -262,7 +254,7 @@ def sales_summary_between(start_iso: str, end_iso: str):
     """, (start_iso, end_iso))
     margin_usd = cur.fetchone()[0]
 
-    # (top products not needed for your new simplified report, but we keep it if you want later)
+    # optional top (kept for future)
     cur.execute("""
         SELECT p.sku, p.name,
                SUM(si.qty) AS units_sold,
@@ -286,15 +278,13 @@ def sales_summary_between(start_iso: str, end_iso: str):
 
 def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, items: Iterable[dict]) -> int:
     """
-    items: {product_id, qty, unit_cost_usd}
-    Increases stock and updates product cost using weighted average cost.
+    Weighted average cost update:
+      new_cost = (old_stock*old_cost + qty*unit_cost) / (old_stock+qty)
     """
     conn = get_connection()
     cur = conn.cursor()
 
-    total_usd = 0.0
-    for it in items:
-        total_usd += float(it["unit_cost_usd"]) * int(it["qty"])
+    total_usd = sum(float(it["unit_cost_usd"]) * int(it["qty"]) for it in items)
 
     cur.execute("""
         INSERT INTO purchases (datetime, vendor, total_usd, notes)
@@ -312,7 +302,6 @@ def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, it
             VALUES (?, ?, ?, ?)
         """, (purchase_id, pid, qty, unit_cost))
 
-        # Get current stock and cost
         cur.execute("SELECT stock, cost_usd FROM products WHERE id=? AND active=1", (pid,))
         row = cur.fetchone()
         if not row:
@@ -323,12 +312,8 @@ def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, it
         old_stock = int(row[0])
         old_cost = float(row[1])
 
-        # Weighted average cost
         new_stock = old_stock + qty
-        if new_stock > 0:
-            new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock
-        else:
-            new_cost = unit_cost
+        new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock > 0 else unit_cost
 
         cur.execute("""
             UPDATE products
