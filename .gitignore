@@ -5,3 +5,8 @@ venv/
 .env
 *.log
 .venv
+dist/
+build/
+*.egg-info/
+*.egg
+inventory_sales_manager.egg-info
