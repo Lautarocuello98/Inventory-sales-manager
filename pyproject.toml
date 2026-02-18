@@ -1,0 +1,16 @@
+[project]
+name = "inventory-sales-manager"
+version = "1.0.0"
+description = "Inventory & Sales Manager (USD + ARS) with SQLite, Tkinter, Excel reports, FX rate"
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31.0",
+  "openpyxl>=3.1.2",
+]
+
+[project.scripts]
+ism = "ism.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
