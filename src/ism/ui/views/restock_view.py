@@ -28,11 +28,12 @@ class RestockView:
 
         top = ttk.LabelFrame(tab, text="Add restock item")
         top.pack(fill="x", padx=10, pady=10)
+        top.columnconfigure(1, weight=1)
 
         ttk.Label(top, text="Search product (SKU or name)").grid(row=0, column=0, padx=10, pady=8, sticky="w")
 
         self.combo = ttk.Combobox(top, textvariable=self.restock_pick, width=56)
-        self.combo.grid(row=0, column=1, padx=10, pady=8, sticky="w")
+        self.combo.grid(row=0, column=1, padx=10, pady=8, sticky="ew")
         self.combo.bind("<KeyRelease>", lambda e: self._filter_combobox(self.combo, self.restock_all_choices, self.restock_pick.get()))
 
         ttk.Label(top, text="Qty").grid(row=0, column=2, padx=10, pady=8, sticky="w")
@@ -44,7 +45,7 @@ class RestockView:
         self.cost_e.grid(row=0, column=5, padx=10, pady=8, sticky="w")
 
         ttk.Button(top, text="Add", style="Big.TButton", command=self.add_item)\
-            .grid(row=0, column=6, padx=10, pady=8)
+            .grid(row=1, column=0, columnspan=7, padx=10, pady=(0, 8), sticky="e")
 
         mid = ttk.Frame(tab)
         mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))

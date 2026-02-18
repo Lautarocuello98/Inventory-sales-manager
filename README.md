@@ -6,7 +6,12 @@ This project implements a clean layered architecture with proper separation of c
 
 ---
 
-## ✨ Overview
+## Screenshot
+
+![Start](screenshot/screenshot.jpeg)
+---
+
+## Overview
 
 Inventory & Sales Manager (ISM) is a desktop system that allows small businesses or individuals to:
 
@@ -22,7 +27,7 @@ The system guarantees full traceability of stock movements and financial calcula
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 The project follows a layered architecture to ensure maintainability and scalability.
 
@@ -94,16 +99,16 @@ Implements business logic:
 
 ---
 
-## 🚀 Features
+## Features
 
-### 📦 Product Management
+### Product Management
 - SKU-based product identification
 - Create and update products
 - Minimum stock thresholds
 - Low-stock highlighting
 - Inventory overview panel
 
-### 🧾 Sales
+### Sales
 - Cart-based sale workflow
 - Automatic stock validation
 - Automatic stock deduction
@@ -112,7 +117,7 @@ Implements business logic:
 - Detailed sale history
 - 7-day KPI revenue and profit tracking
 
-### 🔁 Restock / Purchases
+### Restock / Purchases
 - Manual restock interface
 - Vendor and notes tracking
 - Purchase history tracking
@@ -129,7 +134,7 @@ This guarantees accurate future profit margins.
 
 ---
 
-## 📊 Excel Integration
+## Excel Integration
 
 ### Import
 
@@ -178,7 +183,7 @@ All sheets include financial formatting and structured tables.
 
 ---
 
-## 💾 Database
+## Database
 
 SQLite with foreign keys enabled.
 
@@ -225,7 +230,7 @@ python -m pip install -e .
 
 ---
 
-## ▶ Run Application
+## Run Application
 
 From project root:
 
@@ -241,7 +246,7 @@ ism
 
 ---
 
-## 📈 Key Design Goals
+## Key Design Goals
 
 - Clean separation of concerns
 - Service-oriented business logic
@@ -252,7 +257,7 @@ ism
 
 ---
 
-## 🧠 Technical Stack
+## Technical Stack
 
 - Python 3.10+
 - Tkinter
@@ -263,19 +268,7 @@ ism
 
 ---
 
-## 📌 Potential Extensions
-
-- Multi-user authentication
-- Multi-store support
-- Dashboard charts
-- Cloud database backend
-- API interface
-- PyInstaller packaging
-- Dark mode theme
-
----
-
-## 👨‍💻 Author
+## Author
 
 Lautaro Cuello  
 Python Developer
