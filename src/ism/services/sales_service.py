@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, Optional
 
-from ism.domain.errors import ValidationError, NotFoundError, InsufficientStockError, FxUnavailableError
+from ism.domain.errors import (
+    FxUnavailableError,
+    InsufficientStockError,
+    NotFoundError,
+    ValidationError,
+)
 from ism.domain.models import SaleHeader, SaleLine
 
 
@@ -33,8 +38,10 @@ class SalesService:
 
         try:
             fx = float(self.fx.get_today_rate())
-        except Exception as e:
-            raise FxUnavailableError(str(e))
+        except FxUnavailableError:
+            raise
+        except (TypeError, ValueError) as e:
+            raise FxUnavailableError(str(e)) from e
 
         dt_iso = datetime.now().replace(microsecond=0).isoformat(sep=" ")
         return self.repo.create_sale(dt_iso, fx, notes, items)

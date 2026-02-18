@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from src.ism.repositories.sqlite_repo import SqliteRepository
-from src.ism.services.inventory_service import InventoryService
-from src.ism.services.purchase_service import PurchaseService
+from ism.repositories.sqlite_repo import SqliteRepository
+from ism.services.inventory_service import InventoryService
+from ism.services.purchase_service import PurchaseService
 
 
 class FailingRepo(SqliteRepository):

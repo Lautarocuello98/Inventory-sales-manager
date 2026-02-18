@@ -3,8 +3,8 @@ from pathlib import Path
 
 import requests
 
-from src.ism.repositories.sqlite_repo import SqliteRepository
-from src.ism.services.fx_service import FxService
+from ism.repositories.sqlite_repo import SqliteRepository
+from ism.services.fx_service import FxService
 
 
 def test_fx_uses_latest_cached_rate_when_remote_fails(tmp_path: Path):
