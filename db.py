@@ -240,7 +240,6 @@ def sale_items_for_sale(sale_id: int):
 def sales_summary_between(start_iso: str, end_iso: str):
     """
     totals: (sales_count, total_usd, total_ars, margin_usd)
-    top_products: (sku, name, units_sold, revenue_usd, margin_usd)
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -263,6 +262,7 @@ def sales_summary_between(start_iso: str, end_iso: str):
     """, (start_iso, end_iso))
     margin_usd = cur.fetchone()[0]
 
+    # (top products not needed for your new simplified report, but we keep it if you want later)
     cur.execute("""
         SELECT p.sku, p.name,
                SUM(si.qty) AS units_sold,
@@ -279,7 +279,7 @@ def sales_summary_between(start_iso: str, end_iso: str):
     top = cur.fetchall()
 
     conn.close()
-    return (c, float(total_usd), float(total_ars), float(margin_usd)), top
+    return (int(c), float(total_usd), float(total_ars), float(margin_usd)), top
 
 
 # ---------------- Purchases / Restock ----------------
@@ -287,7 +287,7 @@ def sales_summary_between(start_iso: str, end_iso: str):
 def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, items: Iterable[dict]) -> int:
     """
     items: {product_id, qty, unit_cost_usd}
-    Increases stock and optionally updates product cost_usd to latest unit_cost_usd.
+    Increases stock and updates product cost using weighted average cost.
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -307,7 +307,6 @@ def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, it
         qty = int(it["qty"])
         unit_cost = float(it["unit_cost_usd"])
 
-        # Insert purchase item
         cur.execute("""
             INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_usd)
             VALUES (?, ?, ?, ?)
@@ -324,14 +323,13 @@ def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, it
         old_stock = int(row[0])
         old_cost = float(row[1])
 
-        # Calculate weighted average cost
+        # Weighted average cost
         new_stock = old_stock + qty
         if new_stock > 0:
             new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock
         else:
             new_cost = unit_cost
 
-        # Update stock and cost
         cur.execute("""
             UPDATE products
             SET stock = ?, cost_usd = ?
@@ -341,3 +339,33 @@ def create_purchase(datetime_iso: str, vendor: str | None, notes: str | None, it
     conn.commit()
     conn.close()
     return int(purchase_id)
+
+
+def list_purchases_between(start_iso: str, end_iso: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, datetime, vendor, total_usd, notes
+        FROM purchases
+        WHERE datetime >= ? AND datetime < ?
+        ORDER BY datetime DESC
+    """, (start_iso, end_iso))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def purchase_items_for_purchase(purchase_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT p.sku, p.name, pi.qty, pi.unit_cost_usd,
+               (pi.qty * pi.unit_cost_usd) AS line_total_usd
+        FROM purchase_items pi
+        JOIN products p ON p.id = pi.product_id
+        WHERE pi.purchase_id = ?
+        ORDER BY p.name
+    """, (purchase_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
