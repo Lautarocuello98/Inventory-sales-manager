@@ -1,6 +1,8 @@
 from datetime import date
 from pathlib import Path
 
+import requests
+
 from src.ism.repositories.sqlite_repo import SqliteRepository
 from src.ism.services.fx_service import FxService
 
@@ -14,7 +16,7 @@ def test_fx_uses_latest_cached_rate_when_remote_fails(tmp_path: Path):
     fx = FxService(repo)
 
     def fail(_url: str):
-        raise RuntimeError("network down")
+        raise requests.RequestException("network down")
 
     fx._fetch_json = fail  # type: ignore[attr-defined]
 

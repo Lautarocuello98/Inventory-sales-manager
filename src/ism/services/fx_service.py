@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+
 import requests
 
 from ism.domain.errors import FxUnavailableError
@@ -23,13 +24,19 @@ class FxService:
         if "usd" in data and isinstance(data["usd"], dict):
             v = data["usd"].get("ars")
             if v is not None:
-                return float(v)
+                return self._validate_rate(v)
 
         for _k, v in data.items():
             if isinstance(v, dict) and "ars" in v:
-                return float(v["ars"])
+                return self._validate_rate(v["ars"])
 
         raise FxUnavailableError(f"FX API response missing ARS rate. Raw: {data}")
+
+    def _validate_rate(self, value: object) -> float:
+        rate = float(value)
+        if rate <= 0:
+            raise FxUnavailableError(f"FX rate must be > 0. Received: {rate}")
+        return rate
 
     def get_rate_for_date(self, d: date) -> float:
         d_iso = d.isoformat()
@@ -47,7 +54,7 @@ class FxService:
                 rate = self._extract_usd_ars(data)
                 self.repo.set_fx_rate(d_iso, rate)
                 return float(rate)
-            except Exception as e:
+            except (requests.RequestException, ValueError, FxUnavailableError) as e:
                 last_err = e
                 log.warning("FX fetch failed for %s: %s", url, e)
 
