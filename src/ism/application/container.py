@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ism.repositories.sqlite_repo import SqliteRepository
 from ism.services.auth_service import AuthService
+from ism.services.backup_service import BackupService
 from ism.services.excel_service import ExcelService
 from ism.services.fx_service import FxService
 from ism.services.inventory_service import InventoryService
@@ -23,6 +24,7 @@ class AppContainer:
     excel: ExcelService
     reporting: ReportingService
     auth: AuthService
+    backup: BackupService
 
 
 def build_container(db_path: Path | str) -> AppContainer:
@@ -36,6 +38,7 @@ def build_container(db_path: Path | str) -> AppContainer:
     excel = ExcelService(repo, purchases, inventory)
     reporting = ReportingService(repo)
     auth = AuthService(repo)
+    backup = BackupService(db_path, Path(db_path).parent / "backups")
 
     return AppContainer(
         repo=repo,
@@ -46,4 +49,5 @@ def build_container(db_path: Path | str) -> AppContainer:
         excel=excel,
         reporting=reporting,
         auth=auth,
+        backup=backup,
     )

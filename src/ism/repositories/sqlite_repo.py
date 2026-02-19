@@ -141,7 +141,7 @@ class SqliteRepository:
             WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')
             """
             ,
-            (self._hash_pin("admin123"),),
+            (self._hash_pin("admin123!"),),
         )
 
         cur.execute(

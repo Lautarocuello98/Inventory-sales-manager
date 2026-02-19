@@ -242,7 +242,7 @@ class RestockView:
         items = [{"product_id": it["product_id"], "qty": it["qty"], "unit_cost_usd": it["unit_cost_usd"]} for it in self.restock_cart]
 
         try:
-            if not self.app.can("admin", "seller"):
+            if not self.app.can_action("create_restock"):
                 raise PermissionError("Tu rol no puede registrar reposiciones.")
             purchase_id = self.app.purchases.create_purchase(vendor=vendor, notes=notes, items=items, actor_user_id=self.app.current_user.id)
         except Exception as e:
