@@ -11,6 +11,9 @@ class InventoryService:
     def list_products(self) -> list[Product]:
         return self.repo.list_products()
 
+    def top_critical_stock(self, limit: int = 10) -> list[tuple[str, int, int]]:
+        return self.repo.list_top_critical_stock(limit)
+    
     def get_product_by_sku(self, sku: str) -> Product:
         p = self.repo.get_product_by_sku(sku)
         if not p:

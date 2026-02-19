@@ -6,7 +6,7 @@ from ism.services.purchase_service import PurchaseService
 
 
 class FailingRepo(SqliteRepository):
-    def create_purchase_with_items(self, datetime_iso, vendor, total_usd, notes, items):
+    def create_purchase_with_items(self, datetime_iso, vendor, total_usd, notes, items, actor_user_id=None):
         conn = self._conn()
         cur = conn.cursor()
         try:

@@ -7,7 +7,7 @@ import requests
 
 from ism.domain.errors import FxUnavailableError
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("ism.fx")
 
 
 class FxService:
@@ -56,11 +56,11 @@ class FxService:
                 return float(rate)
             except (requests.RequestException, ValueError, FxUnavailableError) as e:
                 last_err = e
-                log.warning("FX fetch failed for %s: %s", url, e)
+                log.warning("fx_source_failed url=%s error=%s", url, e)
 
         latest = self.repo.get_latest_fx_rate()
         if latest is not None:
-            log.warning("Using cached FX rate from previous date: %.4f", float(latest))
+            log.warning("fx_fallback_cached rate=%.4f", float(latest))
             self.repo.set_fx_rate(d_iso, float(latest))
             return float(latest)
 

@@ -52,3 +52,26 @@ class PurchaseLine:
     qty: int
     unit_cost_usd: float
     line_total_usd: float
+
+
+@dataclass(frozen=True)
+class User:
+    id: int
+    username: str
+    role: str
+    active: int = 1
+
+
+@dataclass(frozen=True)
+class LedgerEntry:
+    id: int
+    datetime: str
+    product_id: int
+    movement_type: str
+    qty_delta: int
+    stock_after: int
+    unit_value_usd: float
+    reference_type: str
+    reference_id: int
+    actor_user_id: Optional[int]
+    notes: Optional[str]

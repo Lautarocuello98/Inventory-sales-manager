@@ -3,11 +3,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Optional
-import logging
 
-from ism.domain.models import Product, SaleHeader, SaleLine, PurchaseHeader, PurchaseLine
-
-log = logging.getLogger(__name__)
+from ism.domain.models import Product, SaleHeader, SaleLine, PurchaseHeader, PurchaseLine, User, LedgerEntry
 
 
 class SqliteRepository:
@@ -20,10 +17,34 @@ class SqliteRepository:
         return conn
 
     def init_db(self) -> None:
+        self.run_migrations()
+
+    def run_migrations(self) -> None:
         conn = self._conn()
         cur = conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
+        cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+        current_version = int(cur.fetchone()[0])
 
-        cur.execute("""
+        migrations = [
+            (1, self._migration_v1_base),
+            (2, self._migration_v2_constraints_and_ledger),
+        ]
+
+        for version, migration in migrations:
+            if version <= current_version:
+                continue
+            migration(cur)
+            cur.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+                (version,),
+            )
+        conn.commit()
+        conn.close()
+
+    def _migration_v1_base(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sku TEXT UNIQUE NOT NULL,
@@ -34,7 +55,8 @@ class SqliteRepository:
             min_stock INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1
         )
-        """)
+        """
+        )
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS sales (
@@ -47,7 +69,8 @@ class SqliteRepository:
         )
         """)
 
-        cur.execute("""
+        cur.execute(
+            """
         CREATE TABLE IF NOT EXISTS sale_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sale_id INTEGER NOT NULL,
@@ -57,16 +80,20 @@ class SqliteRepository:
             FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE,
             FOREIGN KEY(product_id) REFERENCES products(id)
         )
-        """)
+        """
+        )
 
-        cur.execute("""
+        cur.execute(
+            """
         CREATE TABLE IF NOT EXISTS fx_rates (
             date TEXT PRIMARY KEY,
             usd_ars REAL NOT NULL
         )
-        """)
+        """
+        )
 
-        cur.execute("""
+        cur.execute(
+            """
         CREATE TABLE IF NOT EXISTS purchases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             datetime TEXT NOT NULL,
@@ -74,9 +101,11 @@ class SqliteRepository:
             total_usd REAL NOT NULL,
             notes TEXT
         )
-        """)
+        """
+        )
 
-        cur.execute("""
+        cur.execute(
+            """
         CREATE TABLE IF NOT EXISTS purchase_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             purchase_id INTEGER NOT NULL,
@@ -86,27 +115,195 @@ class SqliteRepository:
             FOREIGN KEY(purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
             FOREIGN KEY(product_id) REFERENCES products(id)
         )
-        """)
+        """
+        )
 
-        conn.commit()
-        conn.close()
+    def _migration_v2_constraints_and_ledger(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                pin TEXT NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('admin','seller','viewer')),
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT INTO users (username, pin, role)
+            SELECT 'admin', 'admin123', 'admin'
+            WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')
+            """
+        )
 
-    # ---------- Products ----------
-    def add_product(self, sku: str, name: str, cost_usd: float, price_usd: float,
-                    stock: int, min_stock: int) -> int:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stock_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                datetime TEXT NOT NULL,
+                product_id INTEGER NOT NULL,
+                movement_type TEXT NOT NULL CHECK(movement_type IN ('sale','purchase','adjustment')),
+                qty_delta INTEGER NOT NULL,
+                stock_after INTEGER NOT NULL CHECK(stock_after >= 0),
+                unit_value_usd REAL NOT NULL CHECK(unit_value_usd >= 0),
+                reference_type TEXT NOT NULL CHECK(reference_type IN ('sale','purchase','manual')),
+                reference_id INTEGER NOT NULL,
+                actor_user_id INTEGER,
+                notes TEXT,
+                FOREIGN KEY(product_id) REFERENCES products(id),
+                FOREIGN KEY(actor_user_id) REFERENCES users(id)
+            )
+            """
+        )
+
+        cur.execute("ALTER TABLE sales ADD COLUMN actor_user_id INTEGER REFERENCES users(id)")
+        cur.execute("ALTER TABLE purchases ADD COLUMN actor_user_id INTEGER REFERENCES users(id)")
+
+        self._rebuild_products_with_constraints(cur)
+        self._rebuild_sale_items_with_constraints(cur)
+        self._rebuild_purchase_items_with_constraints(cur)
+        self._rebuild_fx_rates_with_constraints(cur)
+
+    def _rebuild_products_with_constraints(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS products_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sku TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                cost_usd REAL NOT NULL CHECK(cost_usd >= 0),
+                price_usd REAL NOT NULL CHECK(price_usd > 0),
+                stock INTEGER NOT NULL DEFAULT 0 CHECK(stock >= 0),
+                min_stock INTEGER NOT NULL DEFAULT 0 CHECK(min_stock >= 0),
+                active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1))
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO products_new (id, sku, name, cost_usd, price_usd, stock, min_stock, active)
+            SELECT id, sku, name, MAX(cost_usd,0), CASE WHEN price_usd <= 0 THEN 0.01 ELSE price_usd END,
+                   MAX(stock,0), MAX(min_stock,0), CASE WHEN active=0 THEN 0 ELSE 1 END
+            FROM products
+            """
+        )
+        cur.execute("DROP TABLE products")
+        cur.execute("ALTER TABLE products_new RENAME TO products")
+
+    def _rebuild_sale_items_with_constraints(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sale_items_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                qty INTEGER NOT NULL CHECK(qty > 0),
+                unit_price_usd REAL NOT NULL CHECK(unit_price_usd > 0),
+                FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+                FOREIGN KEY(product_id) REFERENCES products(id),
+                UNIQUE(sale_id, product_id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO sale_items_new (id, sale_id, product_id, qty, unit_price_usd)
+            SELECT id, sale_id, product_id, CASE WHEN qty <= 0 THEN 1 ELSE qty END,
+                   CASE WHEN unit_price_usd <= 0 THEN 0.01 ELSE unit_price_usd END
+            FROM sale_items
+            """
+        )
+        cur.execute("DROP TABLE sale_items")
+        cur.execute("ALTER TABLE sale_items_new RENAME TO sale_items")
+
+    def _rebuild_purchase_items_with_constraints(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS purchase_items_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                purchase_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                qty INTEGER NOT NULL CHECK(qty > 0),
+                unit_cost_usd REAL NOT NULL CHECK(unit_cost_usd >= 0),
+                FOREIGN KEY(purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
+                FOREIGN KEY(product_id) REFERENCES products(id),
+                UNIQUE(purchase_id, product_id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO purchase_items_new (id, purchase_id, product_id, qty, unit_cost_usd)
+            SELECT id, purchase_id, product_id,
+                   CASE WHEN qty <= 0 THEN 1 ELSE qty END,
+                   MAX(unit_cost_usd, 0)
+            FROM purchase_items
+            """
+        )
+        cur.execute("DROP TABLE purchase_items")
+        cur.execute("ALTER TABLE purchase_items_new RENAME TO purchase_items")
+
+    def _rebuild_fx_rates_with_constraints(self, cur: sqlite3.Cursor) -> None:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fx_rates_new (
+                date TEXT PRIMARY KEY,
+                usd_ars REAL NOT NULL CHECK(usd_ars > 0)
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO fx_rates_new (date, usd_ars)
+            SELECT date, CASE WHEN usd_ars <= 0 THEN 1 ELSE usd_ars END
+            FROM fx_rates
+            """
+        )
+        cur.execute("DROP TABLE fx_rates")
+        cur.execute("ALTER TABLE fx_rates_new RENAME TO fx_rates")
+
+    # ---------- Users ----------
+    def list_users(self) -> list[User]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute("SELECT id, username, role, active FROM users WHERE active=1 ORDER BY username")
+        rows = cur.fetchall()
+        conn.close()
+        return [User(id=int(r[0]), username=str(r[1]), role=str(r[2]), active=int(r[3])) for r in rows]
+
+    def authenticate_user(self, username: str, pin: str) -> Optional[User]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, username, role, active FROM users WHERE active=1 AND username=? AND pin=?",
+            (username, pin),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return User(id=int(row[0]), username=str(row[1]), role=str(row[2]), active=int(row[3])) if row else None
+
+    # ---------- Products ----------
+    def add_product(self, sku: str, name: str, cost_usd: float, price_usd: float, stock: int, min_stock: int) -> int:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
             INSERT INTO products (sku, name, cost_usd, price_usd, stock, min_stock)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (sku, name, cost_usd, price_usd, stock, min_stock))
+        """, 
+            (sku, name, cost_usd, price_usd, stock, min_stock)
+        )
         pid = cur.lastrowid
         conn.commit()
         conn.close()
         return int(pid)
 
-    def upsert_product(self, sku: str, name: str, cost_usd: float, price_usd: float,
-                       stock: int, min_stock: int) -> int:
+    def upsert_product(
+        self, sku: str, name: str, cost_usd: float, price_usd: float, stock: int, min_stock: int
+    ) -> int:
         conn = self._conn()
         cur = conn.cursor()
 
@@ -114,16 +311,22 @@ class SqliteRepository:
         row = cur.fetchone()
         if row:
             pid = int(row[0])
-            cur.execute("""
+            cur.execute(
+                """
                 UPDATE products
                 SET name=?, cost_usd=?, price_usd=?, stock=?, min_stock=?, active=1
                 WHERE sku=?
-            """, (name, cost_usd, price_usd, stock, min_stock, sku))
+            """,
+                (sku, name, cost_usd, price_usd, stock, min_stock),
+            )
         else:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO products (sku, name, cost_usd, price_usd, stock, min_stock)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (sku, name, cost_usd, price_usd, stock, min_stock))
+            """,
+                (sku, name, cost_usd, price_usd, stock, min_stock),
+            )
             pid = int(cur.lastrowid)
 
         conn.commit()
@@ -133,80 +336,155 @@ class SqliteRepository:
     def list_products(self) -> list[Product]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, sku, name, cost_usd, price_usd, stock, min_stock, active
             FROM products
             WHERE active = 1
             ORDER BY name
-        """)
+        """
+        )
         rows = cur.fetchall()
         conn.close()
         return [
             Product(
-                id=int(r[0]), sku=str(r[1]), name=str(r[2]),
-                cost_usd=float(r[3]), price_usd=float(r[4]),
-                stock=int(r[5]), min_stock=int(r[6]), active=int(r[7]),
+                id=int(r[0]),
+                sku=str(r[1]),
+                name=str(r[2]),
+                cost_usd=float(r[3]),
+                price_usd=float(r[4]),
+                stock=int(r[5]),
+                min_stock=int(r[6]),
+                active=int(r[7]),
             )
             for r in rows
         ]
+    
+    def list_top_critical_stock(self, limit: int = 10) -> list[tuple[str, int, int]]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT sku, stock, min_stock
+            FROM products
+            WHERE active=1
+            ORDER BY (stock - min_stock) ASC, name ASC
+            LIMIT ?
+            """,
+            (int(limit),),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        return [(str(r[0]), int(r[1]), int(r[2])) for r in rows]
+
 
     def get_product_by_sku(self, sku: str) -> Optional[Product]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, sku, name, cost_usd, price_usd, stock, min_stock, active
             FROM products
             WHERE active=1 AND sku=?
-        """, (sku,))
+        """,
+            (sku,),
+        )
         r = cur.fetchone()
         conn.close()
         if not r:
             return None
         return Product(
-            id=int(r[0]), sku=str(r[1]), name=str(r[2]),
-            cost_usd=float(r[3]), price_usd=float(r[4]),
-            stock=int(r[5]), min_stock=int(r[6]), active=int(r[7]),
+            id=int(r[0]),
+            sku=str(r[1]),
+            name=str(r[2]),
+            cost_usd=float(r[3]),
+            price_usd=float(r[4]),
+            stock=int(r[5]),
+            min_stock=int(r[6]),
+            active=int(r[7]),
         )
 
     def get_product_by_id(self, product_id: int) -> Optional[Product]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, sku, name, cost_usd, price_usd, stock, min_stock, active
             FROM products
             WHERE active=1 AND id=?
-        """, (int(product_id),))
+        """,
+            (int(product_id),),
+        )
         r = cur.fetchone()
         conn.close()
         if not r:
             return None
         return Product(
-            id=int(r[0]), sku=str(r[1]), name=str(r[2]),
-            cost_usd=float(r[3]), price_usd=float(r[4]),
-            stock=int(r[5]), min_stock=int(r[6]), active=int(r[7]),
+            id=int(r[0]),
+            sku=str(r[1]),
+            name=str(r[2]),
+            cost_usd=float(r[3]),
+            price_usd=float(r[4]),
+            stock=int(r[5]),
+            min_stock=int(r[6]),
+            active=int(r[7]),
         )
 
-    def update_product_stock_and_cost(self, product_id: int, new_stock: int, new_cost_usd: float) -> None:
+    def append_ledger(
+        self,
+        datetime_iso: str,
+        product_id: int,
+        movement_type: str,
+        qty_delta: int,
+        stock_after: int,
+        unit_value_usd: float,
+        reference_type: str,
+        reference_id: int,
+        actor_user_id: Optional[int],
+        notes: Optional[str],
+    ) -> None:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE products
-            SET stock = ?, cost_usd = ?
-            WHERE id = ? AND active=1
-        """, (int(new_stock), float(new_cost_usd), int(product_id)))
+        cur.execute(
+            """
+            INSERT INTO stock_ledger (
+                datetime, product_id, movement_type, qty_delta, stock_after, unit_value_usd,
+                reference_type, reference_id, actor_user_id, notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime_iso,
+                int(product_id),
+                movement_type,
+                int(qty_delta),
+                int(stock_after),
+                float(unit_value_usd),
+                reference_type,
+                int(reference_id),
+                actor_user_id,
+                notes,
+            ),
+        )
         conn.commit()
         conn.close()
 
-    def decrement_stock(self, product_id: int, qty: int) -> None:
+    def recent_ledger(self, limit: int = 100) -> list[LedgerEntry]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE products
-            SET stock = stock - ?
-            WHERE id = ? AND active=1
-        """, (int(qty), int(product_id)))
-        conn.commit()
+        cur.execute(
+            """
+            SELECT id, datetime, product_id, movement_type, qty_delta, stock_after, unit_value_usd,
+                   reference_type, reference_id, actor_user_id, notes
+            FROM stock_ledger
+            ORDER BY datetime DESC, id DESC
+            LIMIT ?
+            """,
+            (int(limit),),
+        )
+        rows = cur.fetchall()
         conn.close()
+        return [LedgerEntry(*r) for r in rows]
 
     # ---------- FX ----------
     def get_fx_rate(self, date_iso: str) -> Optional[float]:
@@ -220,10 +498,13 @@ class SqliteRepository:
     def set_fx_rate(self, date_iso: str, usd_ars: float) -> None:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO fx_rates (date, usd_ars) VALUES (?, ?)
             ON CONFLICT(date) DO UPDATE SET usd_ars=excluded.usd_ars
-        """, (date_iso, float(usd_ars)))
+        """,
+            (date_iso, float(usd_ars)),
+        )
         conn.commit()
         conn.close()
     
@@ -235,18 +516,11 @@ class SqliteRepository:
         conn.close()
         return float(row[0]) if row else None
 
-
     # ---------- Sales ----------
-    def create_sale(self, datetime_iso: str, fx_usd_ars: float, notes: Optional[str],
-                    items: Iterable[dict]) -> int:
-        """
-        items: [{product_id, qty, unit_price_usd}]
-        stock validation should be done in services, but we still keep it safe here.
-        """
+    def create_sale(self, datetime_iso: str, fx_usd_ars: float, notes: Optional[str], items: Iterable[dict], actor_user_id: Optional[int] = None) -> int:
         conn = self._conn()
         cur = conn.cursor()
 
-        # validate stock
         for it in items:
             cur.execute("SELECT stock FROM products WHERE id=? AND active=1", (int(it["product_id"]),))
             row = cur.fetchone()
@@ -262,20 +536,36 @@ class SqliteRepository:
         total_usd = sum(float(it["unit_price_usd"]) * int(it["qty"]) for it in items)
         total_ars = total_usd * float(fx_usd_ars)
 
-        cur.execute("""
-            INSERT INTO sales (datetime, total_usd, fx_usd_ars, total_ars, notes)
-            VALUES (?, ?, ?, ?, ?)
-        """, (datetime_iso, float(total_usd), float(fx_usd_ars), float(total_ars), notes))
+        cur.execute(
+            """
+            INSERT INTO sales (datetime, total_usd, fx_usd_ars, total_ars, notes, actor_user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """,
+            (datetime_iso, float(total_usd), float(fx_usd_ars), float(total_ars), notes, actor_user_id),
+        )
         sale_id = int(cur.lastrowid)
 
         for it in items:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO sale_items (sale_id, product_id, qty, unit_price_usd)
                 VALUES (?, ?, ?, ?)
-            """, (sale_id, int(it["product_id"]), int(it["qty"]), float(it["unit_price_usd"])))
+            """,
+                (sale_id, int(it["product_id"]), int(it["qty"]), float(it["unit_price_usd"])),
+            )
 
-            cur.execute("UPDATE products SET stock = stock - ? WHERE id = ? AND active=1",
-                        (int(it["qty"]), int(it["product_id"])))
+            cur.execute("UPDATE products SET stock = stock - ? WHERE id = ? AND active=1", (int(it["qty"]), int(it["product_id"])))
+            cur.execute("SELECT stock FROM products WHERE id=?", (int(it["product_id"]),))
+            stock_after = int(cur.fetchone()[0])
+            cur.execute(
+                """
+                INSERT INTO stock_ledger (
+                    datetime, product_id, movement_type, qty_delta, stock_after, unit_value_usd,
+                    reference_type, reference_id, actor_user_id, notes
+                ) VALUES (?, ?, 'sale', ?, ?, ?, 'sale', ?, ?, ?)
+                """,
+                (datetime_iso, int(it["product_id"]), -int(it["qty"]), stock_after, float(it["unit_price_usd"]), sale_id, actor_user_id, notes),
+            )
 
         conn.commit()
         conn.close()
@@ -284,45 +574,91 @@ class SqliteRepository:
     def list_sales_between(self, start_iso: str, end_iso: str) -> list[SaleHeader]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, datetime, total_usd, fx_usd_ars, total_ars, notes
             FROM sales
             WHERE datetime >= ? AND datetime < ?
             ORDER BY datetime DESC
-        """, (start_iso, end_iso))
+        """,
+            (start_iso, end_iso),
+        )
         rows = cur.fetchall()
         conn.close()
         return [
             SaleHeader(
-                id=int(r[0]), datetime=str(r[1]),
-                total_usd=float(r[2]), fx_usd_ars=float(r[3]),
-                total_ars=float(r[4]), notes=(r[5] if r[5] is not None else None),
+                id=int(r[0]),
+                datetime=str(r[1]),
+                total_usd=float(r[2]),
+                fx_usd_ars=float(r[3]),
+                total_ars=float(r[4]),
+                notes=(r[5] if r[5] is not None else None),
             )
             for r in rows
         ]
+    def monthly_sales_totals(self, months: int = 6) -> list[tuple[str, float]]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT substr(datetime,1,7) AS ym, COALESCE(SUM(total_usd),0)
+            FROM sales
+            GROUP BY ym
+            ORDER BY ym DESC
+            LIMIT ?
+            """,
+            (int(months),),
+        )
+        rows = list(reversed(cur.fetchall()))
+        conn.close()
+        return [(str(r[0]), float(r[1])) for r in rows]
+
+    def cumulative_profit_series(self) -> list[tuple[str, float]]:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT substr(s.datetime,1,10) as d,
+                   COALESCE(SUM(si.qty * (si.unit_price_usd - p.cost_usd)),0)
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            JOIN products p ON p.id = si.product_id
+            GROUP BY d ORDER BY d
+            """
+        )
+        rows = cur.fetchall()
+        conn.close()
+        out: list[tuple[str, float]] = []
+        acc = 0.0
+        for d, val in rows:
+            acc += float(val)
+            out.append((str(d), acc))
+        return out
 
     def get_sale_header(self, sale_id: int) -> Optional[SaleHeader]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, datetime, total_usd, fx_usd_ars, total_ars, notes
             FROM sales
             WHERE id = ?
-        """, (int(sale_id),))
+        """,
+            (int(sale_id),),
+        )
         r = cur.fetchone()
         conn.close()
         if not r:
             return None
         return SaleHeader(
-            id=int(r[0]), datetime=str(r[1]),
-            total_usd=float(r[2]), fx_usd_ars=float(r[3]),
-            total_ars=float(r[4]), notes=(r[5] if r[5] is not None else None),
+            id=int(r[0]), datetime=str(r[1]), total_usd=float(r[2]), fx_usd_ars=float(r[3]), total_ars=float(r[4]), notes=(r[5] if r[5] is not None else None)
         )
 
     def sale_items_for_sale(self, sale_id: int) -> list[SaleLine]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT p.sku, p.name, si.qty, si.unit_price_usd,
                    (si.qty * si.unit_price_usd) AS line_total_usd,
                    p.cost_usd,
@@ -331,41 +667,43 @@ class SqliteRepository:
             JOIN products p ON p.id = si.product_id
             WHERE si.sale_id = ?
             ORDER BY p.name
-        """, (int(sale_id),))
+        """,
+            (int(sale_id),),
+        )
         rows = cur.fetchall()
         conn.close()
-        return [
-            SaleLine(
-                sku=str(r[0]), name=str(r[1]), qty=int(r[2]),
-                unit_price_usd=float(r[3]), line_total_usd=float(r[4]),
-                cost_usd=float(r[5]), line_margin_usd=float(r[6]),
-            )
-            for r in rows
-        ]
-
+        return [SaleLine(sku=str(r[0]), name=str(r[1]), qty=int(r[2]), unit_price_usd=float(r[3]), line_total_usd=float(r[4]), cost_usd=float(r[5]), line_margin_usd=float(r[6])) for r in rows]
+    
     def sales_summary_between(self, start_iso: str, end_iso: str) -> tuple[tuple[int, float, float, float], list[tuple]]:
         conn = self._conn()
         cur = conn.cursor()
 
-        cur.execute("""
+        cur.execute(
+            """
             SELECT COUNT(*),
                    COALESCE(SUM(total_usd), 0),
                    COALESCE(SUM(total_ars), 0)
             FROM sales
             WHERE datetime >= ? AND datetime < ?
-        """, (start_iso, end_iso))
+        """,
+            (start_iso, end_iso),
+        )
         c, total_usd, total_ars = cur.fetchone()
 
-        cur.execute("""
+        cur.execute(
+            """
             SELECT COALESCE(SUM(si.qty * (si.unit_price_usd - p.cost_usd)), 0)
             FROM sale_items si
             JOIN sales s ON s.id = si.sale_id
             JOIN products p ON p.id = si.product_id
             WHERE s.datetime >= ? AND s.datetime < ?
-        """, (start_iso, end_iso))
+        """,
+            (start_iso, end_iso),
+        )
         margin_usd = cur.fetchone()[0]
 
-        cur.execute("""
+        cur.execute(
+            """
             SELECT p.sku, p.name,
                    SUM(si.qty) AS units_sold,
                    SUM(si.qty * si.unit_price_usd) AS revenue_usd,
@@ -377,27 +715,34 @@ class SqliteRepository:
             GROUP BY p.id
             ORDER BY units_sold DESC
             LIMIT 20
-        """, (start_iso, end_iso))
+        """,
+            (start_iso, end_iso),
+        )
         top = cur.fetchall()
 
         conn.close()
         return (int(c), float(total_usd), float(total_ars), float(margin_usd)), top
     
 
-
-    def create_purchase_with_items(self, datetime_iso: str, vendor: Optional[str], total_usd: float,
-                                   notes: Optional[str], items: Iterable[dict]) -> int:
-        """
-        Atomic purchase creation: header + items + product stock/cost updates in one transaction.
-        items: [{product_id, qty, unit_cost_usd}]
-        """
+    def create_purchase_with_items(
+        self,
+        datetime_iso: str,
+        vendor: Optional[str],
+        total_usd: float,
+        notes: Optional[str],
+        items: Iterable[dict],
+        actor_user_id: Optional[int] = None,
+    ) -> int:
         conn = self._conn()
         cur = conn.cursor()
         try:
-            cur.execute("""
-                INSERT INTO purchases (datetime, vendor, total_usd, notes)
-                VALUES (?, ?, ?, ?)
-            """, (datetime_iso, vendor, float(total_usd), notes))
+            cur.execute(
+                """
+                INSERT INTO purchases (datetime, vendor, total_usd, notes, actor_user_id)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (datetime_iso, vendor, float(total_usd), notes, actor_user_id),
+            )
             purchase_id = int(cur.lastrowid)
 
             for it in items:
@@ -405,11 +750,14 @@ class SqliteRepository:
                 qty = int(it["qty"])
                 unit_cost = float(it["unit_cost_usd"])
 
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT stock, cost_usd
                     FROM products
                     WHERE id = ? AND active = 1
-                """, (pid,))
+                """,
+                    (pid,),
+                )
                 row = cur.fetchone()
                 if not row:
                     raise ValueError(f"Product not found/active: {pid}")
@@ -419,16 +767,31 @@ class SqliteRepository:
                 new_stock = old_stock + qty
                 new_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock > 0 else unit_cost
 
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_usd)
                     VALUES (?, ?, ?, ?)
-                """, (purchase_id, pid, qty, unit_cost))
+                """,
+                    (purchase_id, pid, qty, unit_cost),
+                )
 
-                cur.execute("""
+                cur.execute(
+                    """
                     UPDATE products
                     SET stock = ?, cost_usd = ?
                     WHERE id = ? AND active = 1
-                """, (new_stock, new_cost, pid))
+                """,
+                    (new_stock, new_cost, pid),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO stock_ledger (
+                        datetime, product_id, movement_type, qty_delta, stock_after, unit_value_usd,
+                        reference_type, reference_id, actor_user_id, notes
+                    ) VALUES (?, ?, 'purchase', ?, ?, ?, 'purchase', ?, ?, ?)
+                    """,
+                    (datetime_iso, pid, qty, new_stock, unit_cost, purchase_id, actor_user_id, notes),
+                )
 
             conn.commit()
             return purchase_id
@@ -443,10 +806,13 @@ class SqliteRepository:
     def create_purchase_header(self, datetime_iso: str, vendor: Optional[str], total_usd: float, notes: Optional[str]) -> int:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO purchases (datetime, vendor, total_usd, notes)
             VALUES (?, ?, ?, ?)
-        """, (datetime_iso, vendor, float(total_usd), notes))
+        """,
+            (datetime_iso, vendor, float(total_usd), notes),
+        )
         pid = int(cur.lastrowid)
         conn.commit()
         conn.close()
@@ -455,30 +821,33 @@ class SqliteRepository:
     def add_purchase_item(self, purchase_id: int, product_id: int, qty: int, unit_cost_usd: float) -> None:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_usd)
             VALUES (?, ?, ?, ?)
-        """, (int(purchase_id), int(product_id), int(qty), float(unit_cost_usd)))
+        """,
+            (int(purchase_id), int(product_id), int(qty), float(unit_cost_usd)),
+        )
         conn.commit()
         conn.close()
 
     def list_purchases_between(self, start_iso: str, end_iso: str) -> list[PurchaseHeader]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT id, datetime, vendor, total_usd, notes
             FROM purchases
             WHERE datetime >= ? AND datetime < ?
             ORDER BY datetime DESC
-        """, (start_iso, end_iso))
+        """,
+            (start_iso, end_iso),
+        )
         rows = cur.fetchall()
         conn.close()
         return [
             PurchaseHeader(
-                id=int(r[0]), datetime=str(r[1]),
-                vendor=(r[2] if r[2] is not None else None),
-                total_usd=float(r[3]),
-                notes=(r[4] if r[4] is not None else None),
+                id=int(r[0]), datetime=str(r[1]), vendor=(r[2] if r[2] is not None else None), total_usd=float(r[3]), notes=(r[4] if r[4] is not None else None)
             )
             for r in rows
         ]
@@ -486,20 +855,17 @@ class SqliteRepository:
     def purchase_items_for_purchase(self, purchase_id: int) -> list[PurchaseLine]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT p.sku, p.name, pi.qty, pi.unit_cost_usd,
                    (pi.qty * pi.unit_cost_usd) AS line_total_usd
             FROM purchase_items pi
             JOIN products p ON p.id = pi.product_id
             WHERE pi.purchase_id = ?
             ORDER BY p.name
-        """, (int(purchase_id),))
+        """,
+            (int(purchase_id),),
+        )
         rows = cur.fetchall()
         conn.close()
-        return [
-            PurchaseLine(
-                sku=str(r[0]), name=str(r[1]), qty=int(r[2]),
-                unit_cost_usd=float(r[3]), line_total_usd=float(r[4]),
-            )
-            for r in rows
-        ]
+        return [PurchaseLine(sku=str(r[0]), name=str(r[1]), qty=int(r[2]), unit_cost_usd=float(r[3]), line_total_usd=float(r[4])) for r in rows]

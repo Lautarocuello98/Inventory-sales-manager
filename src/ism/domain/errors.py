@@ -16,3 +16,7 @@ class InsufficientStockError(AppError):
 
 class FxUnavailableError(AppError):
     pass
+
+
+class AuthorizationError(AppError):
+    pass

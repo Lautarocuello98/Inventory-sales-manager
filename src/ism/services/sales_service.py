@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Iterable, Optional
 
 from collections import Counter
+import logging
 from ism.domain.errors import (
     FxUnavailableError,
     InsufficientStockError,
@@ -12,13 +13,15 @@ from ism.domain.errors import (
 )
 from ism.domain.models import SaleHeader, SaleLine
 
+log = logging.getLogger("ism.sales")
+
 
 class SalesService:
     def __init__(self, repo, fx_service):
         self.repo = repo
         self.fx = fx_service
 
-    def create_sale(self, notes: Optional[str], items: Iterable[dict]) -> int:
+    def create_sale(self, notes: Optional[str], items: Iterable[dict], actor_user_id: int | None = None) -> int:
         """
         items: [{product_id, qty, unit_price_usd}]
         """
@@ -53,7 +56,9 @@ class SalesService:
             raise FxUnavailableError(str(e)) from e
 
         dt_iso = datetime.now().replace(microsecond=0).isoformat(sep=" ")
-        return self.repo.create_sale(dt_iso, fx, notes, items)
+        sale_id = self.repo.create_sale(dt_iso, fx, notes, items, actor_user_id=actor_user_id)
+        log.info("sale_created sale_id=%s items=%s fx=%.4f actor=%s", sale_id, len(items), fx, actor_user_id)
+        return sale_id
 
     def list_sales_between(self, start_iso: str, end_iso: str) -> list[SaleHeader]:
         return self.repo.list_sales_between(start_iso, end_iso)

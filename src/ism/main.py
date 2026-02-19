@@ -11,6 +11,7 @@ from ism.services.sales_service import SalesService
 from ism.services.purchase_service import PurchaseService
 from ism.services.excel_service import ExcelService
 from ism.services.reporting_service import ReportingService
+from ism.services.auth_service import AuthService
 from ism.ui.app import App
 
 
@@ -27,6 +28,7 @@ def main() -> None:
     sales = SalesService(repo, fx)
     excel = ExcelService(repo, purchases, inventory)
     reporting = ReportingService(repo)
+    auth = AuthService(repo)
 
     app = App(
         fx_service=fx,
@@ -35,6 +37,7 @@ def main() -> None:
         purchase_service=purchases,
         excel_service=excel,
         reporting_service=reporting,
+        auth_service=auth,        
         db_path=str(paths.db_path),
         logs_dir=str(paths.logs_dir),
     )

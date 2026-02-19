@@ -10,6 +10,12 @@ class ReportingService:
     def __init__(self, repo):
         self.repo = repo
 
+    def monthly_sales_totals(self, months: int = 6) -> list[tuple[str, float]]:
+        return self.repo.monthly_sales_totals(months)
+
+    def cumulative_profit_series(self) -> list[tuple[str, float]]:
+        return self.repo.cumulative_profit_series()
+    
     def export_sales_report_excel(self, path: str, start_iso: str, end_iso: str) -> None:
         wb = Workbook()
 

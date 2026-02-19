@@ -217,11 +217,11 @@ class SalesView:
         items = [{"product_id": it["product_id"], "qty": it["qty"], "unit_price_usd": it["unit_price_usd"]} for it in self.cart]
 
         try:
-            sale_id = self.app.sales.create_sale(notes, items)
+            if not self.app.can("admin", "seller"):
+                raise PermissionError("Tu rol no puede registrar ventas.")
+            sale_id = self.app.sales.create_sale(notes, items, actor_user_id=self.app.current_user.id)
         except Exception as e:
-            log.exception("Sale confirmation failed: %s", e)
-            messagebox.showerror("Sale failed", str(e))
-            self.app.toast("Sale failed.", kind="error")
+            self.app.handle_error("Sale failed", e, "Sale failed.")
             return
 
         messagebox.showinfo("OK", f"Sale saved. ID: {sale_id}")

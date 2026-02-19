@@ -1,33 +1,48 @@
 from __future__ import annotations
 
+import json
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "time": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def _handler(path: Path, level: int) -> RotatingFileHandler:
+    fh = RotatingFileHandler(path, maxBytes=2_000_000, backupCount=5, encoding="utf-8")
+    fh.setFormatter(JsonFormatter(datefmt="%Y-%m-%d %H:%M:%S"))
+    fh.setLevel(level)
+    return fh
+
+
 def setup_logging(logs_dir: Path, level: int = logging.INFO) -> None:
     logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / "app.log"
 
-    logger = logging.getLogger()
-    logger.setLevel(level)
-
-    # Prevent duplicate handlers if main() called multiple times
-    if any(isinstance(h, RotatingFileHandler) for h in logger.handlers):
+    root = logging.getLogger()
+    root.setLevel(level)
+    if root.handlers:
         return
 
-    fmt = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    app_handler = _handler(logs_dir / "app.log", logging.INFO)
+    err_handler = _handler(logs_dir / "errors.log", logging.ERROR)
+    root.addHandler(app_handler)
+    root.addHandler(err_handler)
 
-    fh = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
-    fh.setFormatter(fmt)
-    fh.setLevel(level)
+    sales_handler = _handler(logs_dir / "sales.log", logging.INFO)
+    logging.getLogger("ism.sales").addHandler(sales_handler)
+    logging.getLogger("ism.sales").setLevel(logging.INFO)
 
-    sh = logging.StreamHandler()
-    sh.setFormatter(fmt)
-    sh.setLevel(level)
-
-    logger.addHandler(fh)
-    logger.addHandler(sh)
+    fx_handler = _handler(logs_dir / "fx.log", logging.INFO)
+    logging.getLogger("ism.fx").addHandler(fx_handler)
+    logging.getLogger("ism.fx").setLevel(logging.INFO)

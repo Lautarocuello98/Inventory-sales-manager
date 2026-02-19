@@ -97,6 +97,8 @@ class ProductsView:
 
             # Create with stock=0 first. If initial stock is provided,
             # it is applied as a purchase so inventory history remains consistent.
+            if not self.app.can("admin"):
+                raise PermissionError("Solo admin puede crear productos.")
             pid = self.app.inventory.add_product(sku, name, cost, price, 0, min_stock)
 
             # If user set initial stock, log as an INITIAL purchase (so it appears in history)
@@ -106,6 +108,7 @@ class ProductsView:
                     vendor="INITIAL",
                     notes=f"Initial stock on product creation ({sku})",
                     items=[{"product_id": prod.id, "qty": stock, "unit_cost_usd": cost}],
+                    actor_user_id=self.app.current_user.id,
                 )
 
             self.app.toast(f"Product added (ID {pid}).", kind="success")
@@ -115,9 +118,7 @@ class ProductsView:
             self.app.refresh_all(silent_fx=True)
 
         except Exception as e:
-            log.exception("Failed to add product: %s", e)
-            messagebox.showerror("Error", str(e))
-            self.app.toast("Failed to add product.", kind="error")
+            self.app.handle_error("Error", e, "Failed to add product.")
 
     def clear_form(self):
         for e in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
