@@ -44,7 +44,7 @@ class ProductsView:
         ttk.Button(btns, text="Clear", command=self.clear_form)            .grid(row=0, column=2, sticky="ew", padx=(6, 0))
         
         for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
-            entry.bind("<Return>", lambda _e: self.on_add_product())
+            entry.bind("<Return>", self._on_enter_add_product)
         tree_wrap = ttk.Frame(right)
         tree_wrap.pack(fill="both", expand=True, padx=6, pady=6)
 
@@ -100,6 +100,10 @@ class ProductsView:
             return float(s)
         except Exception:
             raise ValueError(f"{field} must be a number.")
+
+    def _on_enter_add_product(self, _event=None):
+        self.on_add_product()
+        return "break"
 
     def on_add_product(self):
         try:

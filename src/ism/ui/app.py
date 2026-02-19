@@ -111,8 +111,12 @@ class App(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Login inválido", str(e), parent=dialog)
 
+        def submit_on_enter(_event=None):
+            submit()
+            return "break"
+
         ttk.Button(dialog, text="Enter", style="Primary.TButton", command=submit).pack(pady=18)
-        dialog.bind("<Return>", lambda _e: submit())
+        dialog.bind("<Return>", submit_on_enter)
         pin_entry.focus_set()
 
         self.wait_window(dialog)

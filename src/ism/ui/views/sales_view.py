@@ -44,8 +44,8 @@ class SalesView:
         ttk.Button(top, text="Add to cart", style="Big.TButton", command=self.add_to_cart)\
             .grid(row=0, column=4, padx=10, pady=8)
 
-        self.combo.bind("<Return>", lambda _e: self.add_to_cart())
-        self.qty_e.bind("<Return>", lambda _e: self.add_to_cart())
+        self.combo.bind("<Return>", self._on_enter_add_to_cart)
+        self.qty_e.bind("<Return>", self._on_enter_add_to_cart)
 
         mid = ttk.Frame(tab)
         mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -79,7 +79,7 @@ class SalesView:
         ttk.Button(right, text="Confirm sale", style="Big.TButton", command=self.confirm_sale)\
             .pack(fill="x", padx=10, pady=(0, 10))
 
-        self.notes.bind("<Control-Return>", lambda _e: self.confirm_sale())
+        self.notes.bind("<Control-Return>", self._on_ctrl_enter_confirm_sale)
 
         # Sales history
         hist = ttk.LabelFrame(tab, text="Sales History (double click to view details)")
@@ -104,6 +104,14 @@ class SalesView:
             self.sales_tree.column(c, width=widths[c], anchor="w")
         self.sales_tree.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.sales_tree.bind("<Double-1>", self.open_sale_details)
+        
+    def _on_enter_add_to_cart(self, _event=None):
+        self.add_to_cart()
+        return "break"
+
+    def _on_ctrl_enter_confirm_sale(self, _event=None):
+        self.confirm_sale()
+        return "break"
 
     def _filter_combobox(self, combo: ttk.Combobox, all_choices: list[str], typed: str):
         typed = typed.strip().lower()

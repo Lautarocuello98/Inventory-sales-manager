@@ -47,9 +47,9 @@ class RestockView:
         ttk.Button(top, text="Add", style="Big.TButton", command=self.add_item)\
             .grid(row=1, column=0, columnspan=7, padx=10, pady=(0, 8), sticky="e")
    
-        self.combo.bind("<Return>", lambda _e: self.add_item())
-        self.qty_e.bind("<Return>", lambda _e: self.add_item())
-        self.cost_e.bind("<Return>", lambda _e: self.add_item())
+        self.combo.bind("<Return>", self._on_enter_add_item)
+        self.qty_e.bind("<Return>", self._on_enter_add_item)
+        self.cost_e.bind("<Return>", self._on_enter_add_item)
 
         mid = ttk.Frame(tab)
         mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -87,8 +87,8 @@ class RestockView:
         ttk.Button(right, text="Confirm restock", style="Big.TButton", command=self.confirm)\
             .pack(fill="x", padx=10, pady=(0, 10))
  
-        self.vendor_e.bind("<Return>", lambda _e: self.confirm())
-        self.notes.bind("<Control-Return>", lambda _e: self.confirm())
+        self.vendor_e.bind("<Return>", self._on_enter_confirm)
+        self.notes.bind("<Control-Return>", self._on_ctrl_enter_confirm)
 
         # Purchases history
         hist = ttk.LabelFrame(tab, text="Purchases History (double click to view details)")
@@ -113,6 +113,18 @@ class RestockView:
             self.purchases_tree.column(c, width=widths[c], anchor="w")
         self.purchases_tree.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.purchases_tree.bind("<Double-1>", self.open_purchase_details)
+
+    def _on_enter_add_item(self, _event=None):
+        self.add_item()
+        return "break"
+
+    def _on_enter_confirm(self, _event=None):
+        self.confirm()
+        return "break"
+
+    def _on_ctrl_enter_confirm(self, _event=None):
+        self.confirm()
+        return "break"
 
     def _filter_combobox(self, combo: ttk.Combobox, all_choices: list[str], typed: str):
         typed = typed.strip().lower()
