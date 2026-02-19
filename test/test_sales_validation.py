@@ -26,7 +26,7 @@ def test_create_sale_rejects_negative_unit_price(tmp_path: Path):
     repo, pid = _setup(tmp_path)
     sales = SalesService(repo, FixedFxService())
 
-    with pytest.raises(ValidationError, match="Unit price must be >= 0"):
+    with pytest.raises(ValidationError, match="Unit price must be > 0"):
         sales.create_sale(notes=None, items=[{"product_id": pid, "qty": 1, "unit_price_usd": -1.0}])
 
 

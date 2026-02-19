@@ -39,7 +39,7 @@ def test_admin_can_create_seller_and_viewer(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123")
+    admin = auth.login("admin", "ChangeMeNow!")
     auth.create_user(admin, "seller1", "1234", "seller")
     auth.create_user(admin, "viewer1", "1234", "viewer")
 
@@ -54,7 +54,7 @@ def test_non_admin_cannot_create_user(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123")
+    admin = auth.login("admin", "ChangeMeNow!")
     auth.create_user(admin, "seller2", "1234", "seller")
     seller = auth.login("seller2", "1234")
 

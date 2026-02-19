@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+import hashlib
+import hmac
+import secrets
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -134,9 +137,11 @@ class SqliteRepository:
         cur.execute(
             """
             INSERT INTO users (username, pin, role)
-            SELECT 'admin', 'admin123', 'admin'
+            SELECT 'admin', ?, 'admin'
             WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')
             """
+            ,
+            (self._hash_pin("ChangeMeNow!"),),
         )
 
         cur.execute(
@@ -278,12 +283,19 @@ class SqliteRepository:
         conn = self._conn()
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, username, role, active FROM users WHERE active=1 AND username=? AND pin=?",
-            (username, pin),
+            "SELECT id, username, role, active, pin FROM users WHERE active=1 AND username=?",
+            (username,),
         )
         row = cur.fetchone()
+        if row and self._verify_pin(str(row[4]), pin):
+            # transparent upgrade from legacy plain-text pins
+            if not str(row[4]).startswith("pbkdf2_sha256$"):
+                cur.execute("UPDATE users SET pin=? WHERE id=?", (self._hash_pin(pin), int(row[0])))
+                conn.commit()
+            conn.close()
+            return User(id=int(row[0]), username=str(row[1]), role=str(row[2]), active=int(row[3]))
         conn.close()
-        return User(id=int(row[0]), username=str(row[1]), role=str(row[2]), active=int(row[3])) if row else None
+        return None
 
     def create_user(self, username: str, pin: str, role: str) -> int:
         conn = self._conn()
@@ -293,7 +305,7 @@ class SqliteRepository:
             INSERT INTO users (username, pin, role, active)
             VALUES (?, ?, ?, 1)
             """,
-            (username, pin, role),
+            (username, self._hash_pin(pin), role),
         )
         uid = int(cur.lastrowid)
         conn.commit()
@@ -884,3 +896,26 @@ class SqliteRepository:
         rows = cur.fetchall()
         conn.close()
         return [PurchaseLine(sku=str(r[0]), name=str(r[1]), qty=int(r[2]), unit_cost_usd=float(r[3]), line_total_usd=float(r[4])) for r in rows]
+
+    @staticmethod
+    def _hash_pin(pin: str, *, rounds: int = 200_000) -> str:
+        salt = secrets.token_hex(16)
+        digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), bytes.fromhex(salt), rounds).hex()
+        return f"pbkdf2_sha256${rounds}${salt}${digest}"
+
+    @staticmethod
+    def _verify_pin(stored: str, provided: str) -> bool:
+        if stored.startswith("pbkdf2_sha256$"):
+            try:
+                _algo, rounds_s, salt, digest = stored.split("$", 3)
+                rounds = int(rounds_s)
+                candidate = hashlib.pbkdf2_hmac(
+                    "sha256",
+                    provided.encode("utf-8"),
+                    bytes.fromhex(salt),
+                    rounds,
+                ).hex()
+                return hmac.compare_digest(candidate, digest)
+            except Exception:
+                return False
+        return hmac.compare_digest(stored, provided)

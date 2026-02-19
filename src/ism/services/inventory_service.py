@@ -27,8 +27,10 @@ class InventoryService:
             raise ValidationError("SKU and Name are required.")
         if stock < 0 or min_stock < 0:
             raise ValidationError("Stock values must be >= 0.")
-        if cost < 0 or price < 0:
-            raise ValidationError("Cost/price must be >= 0.")
+        if cost < 0:
+            raise ValidationError("Cost must be >= 0.")
+        if price <= 0:
+            raise ValidationError("Price must be > 0.")
         return self.repo.add_product(sku, name, float(cost), float(price), int(stock), int(min_stock))
 
     def upsert_product_keep_stock(self, sku: str, name: str, cost: float, price: float, min_stock: int) -> int:

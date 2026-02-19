@@ -43,8 +43,8 @@ class SalesService:
             unit_price = float(it["unit_price_usd"])
             if qty <= 0:
                 raise ValidationError("Qty must be >= 1.")
-            if unit_price < 0:
-                raise ValidationError("Unit price must be >= 0.")
+            if unit_price <= 0:
+                raise ValidationError("Unit price must be > 0.")
 
             product_id = int(it["product_id"])
             qty_by_product[product_id] += qty
