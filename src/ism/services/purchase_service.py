@@ -1,19 +1,25 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 import logging
 
 from ism.domain.errors import ValidationError, NotFoundError
 from ism.domain.models import PurchaseHeader, PurchaseLine
+from ism.repositories.contracts import ProductRepository
+from ism.repositories.unit_of_work import RepositoryUnitOfWork, UnitOfWork
 
 
 log = logging.getLogger("ism.purchase")
 
 
 class PurchaseService:
-    def __init__(self, repo):
+    def __init__(
+        self,
+        repo: ProductRepository,
+        uow_factory: Callable[[], UnitOfWork] | None = None,
+    ):
         self.repo = repo
+        self.uow_factory = uow_factory or (lambda: RepositoryUnitOfWork(repo))
 
     def create_purchase(self, vendor: Optional[str], notes: Optional[str], items: Iterable[dict], actor_user_id: int | None = None) -> int:
         """
@@ -26,8 +32,7 @@ class PurchaseService:
         if not items:
             raise ValidationError("Restock cart is empty.")
 
-        # Validate items and compute header total
-        total_usd = 0.0
+        # Validate items
         for it in items:
             qty = int(it["qty"])
             unit_cost = float(it["unit_cost_usd"])
@@ -38,19 +43,16 @@ class PurchaseService:
             prod = self.repo.get_product_by_id(int(it["product_id"]))
             if not prod:
                 raise NotFoundError("Product not found/active.")
-            total_usd += unit_cost * qty
 
-        dt_iso = datetime.now().replace(microsecond=0).isoformat(sep=" ")
-        
         try:
-            purchase_id = self.repo.create_purchase_with_items(
-                datetime_iso=dt_iso,
-                vendor=vendor,
-                total_usd=total_usd,
-                notes=notes,
-                items=items,
-                actor_user_id=actor_user_id,
-            )
+            with self.uow_factory() as uow:
+                purchase_id = uow.create_purchase(
+                    vendor=vendor,
+                    notes=notes,
+                    items=items,
+                    actor_user_id=actor_user_id,
+                )
+                
         except ValueError as e:
             raise NotFoundError(str(e))
 

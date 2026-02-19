@@ -56,8 +56,9 @@ class App(tk.Tk):
         main = ttk.Frame(self, style="App.TFrame")
         main.pack(fill="both", expand=True, padx=12, pady=(0, 10))
 
-        self.sidebar = ttk.Frame(main, style="Card.TFrame")
+        self.sidebar = ttk.Frame(main, style="Card.TFrame", width=330)
         self.sidebar.pack(side="left", fill="y", padx=(0, 14))
+        self.sidebar.pack_propagate(False)
 
         self.content = ttk.Frame(main, style="App.TFrame")
         self.content.pack(side="right", fill="both", expand=True)
@@ -90,7 +91,7 @@ class App(tk.Tk):
         result = {"user": None}
 
         ttk.Label(dialog, text="Welcome", style="Title.TLabel").pack(anchor="w", padx=20, pady=(16, 2))
-        ttk.Label(dialog, text="Sign in for continue.").pack(anchor="w", padx=20, pady=(0, 12))
+        ttk.Label(dialog, text="Sign in to continue.").pack(anchor="w", padx=20, pady=(0, 12))
 
         ttk.Label(dialog, text="User", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=20, pady=(2, 4))
         cb = ttk.Combobox(dialog, textvariable=username, values=[u.username for u in users], state="readonly")
@@ -200,14 +201,16 @@ class App(tk.Tk):
         ttk.Label(right, text=f"Base: {Path(self.db_path).name}", style="TopbarMeta.TLabel").pack(anchor="e")
 
     def _build_sidebar(self):
-        box = ttk.LabelFrame(self.sidebar, text="Quick Actions")
-        box.pack(fill="x", pady=(0, 10), padx=8)
-
-        ttk.Button(box, text="📦 Products", style="Big.TButton", command=lambda: self.nb.select(self.products_view.frame)).pack(fill="x", padx=10, pady=(10, 6))
-        ttk.Button(box, text="🧾 New Sale", style="Big.TButton", command=lambda: self.nb.select(self.sales_view.frame)).pack(fill="x", padx=10, pady=6)
-        ttk.Button(box, text="🔁 Restock", style="Big.TButton", command=lambda: self.nb.select(self.restock_view.frame)).pack(fill="x", padx=10, pady=6)
-        ttk.Button(box, text="📊 Reports + Dashboard", style="Big.TButton", command=lambda: self.nb.select(self.reports_view.frame)).pack(fill="x", padx=10, pady=6)
-        ttk.Button(box, text="🔄 Refresh", style="Primary.TButton", command=self.refresh_all).pack(fill="x", padx=10, pady=(6, 10))
+        header = ttk.Frame(self.sidebar, style="Card.TFrame")
+        header.pack(fill="x", padx=12, pady=(12, 10))
+        ttk.Label(header, text="Overview", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            header,
+            text="Use the tabs to navigate products, sales, restock and reports.",
+            style="Subtitle.TLabel",
+            wraplength=280,
+        ).pack(anchor="w", pady=(3, 6))
+        ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
 
         if self.can("admin"):
             self._build_user_admin_panel()
@@ -228,10 +231,16 @@ class App(tk.Tk):
             w.grid(row=i, column=1, sticky="e", padx=10, pady=(8 if i == 0 else 2, 2))
 
         lowbox = ttk.LabelFrame(self.sidebar, text="Low Stock (double click)")
-        lowbox.pack(fill="both", expand=True, pady=(10, 0), padx=8)
+        lowbox.pack(fill="both", expand=True, pady=(10, 10), padx=8)
+
+        low_hint = ttk.Label(lowbox, text="Items at or below minimum stock", style="Subtitle.TLabel")
+        low_hint.pack(anchor="w", padx=8, pady=(8, 0))
+
+        low_wrap = ttk.Frame(lowbox, style="App.TFrame")
+        low_wrap.pack(fill="both", expand=True, padx=8, pady=8)
 
         self.low_list = tk.Listbox(
-            lowbox,
+            low_wrap,
             height=10,
             relief="flat",
             highlightthickness=1,
@@ -241,7 +250,10 @@ class App(tk.Tk):
             selectbackground="#bfdbfe",
             activestyle="none",
         )
-        self.low_list.pack(fill="both", expand=True, padx=8, pady=8)
+        low_scroll = ttk.Scrollbar(low_wrap, orient="vertical", command=self.low_list.yview)
+        self.low_list.configure(yscrollcommand=low_scroll.set)
+        self.low_list.pack(side="left", fill="both", expand=True)
+        low_scroll.pack(side="right", fill="y")
         self.low_list.bind("<Double-1>", self.on_low_stock_open)
         self._low_items = []
 
@@ -381,6 +393,9 @@ class App(tk.Tk):
         self._low_items = []
         rows = self.inventory.list_products()
         low = [p for p in rows if int(p.stock) <= int(p.min_stock)]
+        if not low:
+            self.low_list.insert(tk.END, "✅ No low stock products")
+            return
         for p in low:
             self.low_list.insert(tk.END, f"{p.sku} — {p.name} ({p.stock}/{p.min_stock})")
             self._low_items.append(p.sku)

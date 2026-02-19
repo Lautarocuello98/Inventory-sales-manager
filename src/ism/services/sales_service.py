@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from collections import Counter
 import logging
@@ -12,14 +11,22 @@ from ism.domain.errors import (
     ValidationError,
 )
 from ism.domain.models import SaleHeader, SaleLine
+from ism.repositories.contracts import ProductRepository
+from ism.repositories.unit_of_work import RepositoryUnitOfWork, UnitOfWork
 
 log = logging.getLogger("ism.sales")
 
 
 class SalesService:
-    def __init__(self, repo, fx_service):
+    def __init__(
+        self,
+        repo: ProductRepository,
+        fx_service,
+        uow_factory: Callable[[], UnitOfWork] | None = None,
+    ):
         self.repo = repo
         self.fx = fx_service
+        self.uow_factory = uow_factory or (lambda: RepositoryUnitOfWork(repo))
 
     def create_sale(self, notes: Optional[str], items: Iterable[dict], actor_user_id: int | None = None) -> int:
         """
@@ -55,8 +62,8 @@ class SalesService:
         except (TypeError, ValueError) as e:
             raise FxUnavailableError(str(e)) from e
 
-        dt_iso = datetime.now().replace(microsecond=0).isoformat(sep=" ")
-        sale_id = self.repo.create_sale(dt_iso, fx, notes, items, actor_user_id=actor_user_id)
+        with self.uow_factory() as uow:
+            sale_id = uow.create_sale(fx, notes, items, actor_user_id=actor_user_id)
         log.info("sale_created sale_id=%s items=%s fx=%.4f actor=%s", sale_id, len(items), fx, actor_user_id)
         return sale_id
 
