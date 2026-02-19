@@ -243,7 +243,7 @@ class RestockView:
 
         try:
             if not self.app.can_action("create_restock"):
-                raise PermissionError("Tu rol no puede registrar reposiciones.")
+                raise PermissionError("Your role cannot register restocks.")
             purchase_id = self.app.purchases.create_purchase(vendor=vendor, notes=notes, items=items, actor_user_id=self.app.current_user.id)
         except Exception as e:
             self.app.handle_error("Restock failed", e, "Restock failed.")

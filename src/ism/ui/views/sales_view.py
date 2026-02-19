@@ -231,7 +231,7 @@ class SalesView:
 
         try:
             if not self.app.can_action("create_sale"):
-                raise PermissionError("Tu rol no puede registrar ventas.")
+                raise PermissionError("Your role cannot register sales.")
             sale_id = self.app.sales.create_sale(notes, items, actor_user_id=self.app.current_user.id)
         except Exception as e:
             self.app.handle_error("Sale failed", e, "Sale failed.")

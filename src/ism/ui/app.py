@@ -111,7 +111,7 @@ class App(tk.Tk):
                 result["user"] = self.auth.login(username.get(), pin.get())
                 dialog.destroy()
             except Exception as e:
-                messagebox.showerror("Login inválido", str(e), parent=dialog)
+                messagebox.showerror("Invalid login", str(e), parent=dialog)
 
         def submit_on_enter(_event=None):
             submit()
@@ -219,8 +219,8 @@ class App(tk.Tk):
             style="Subtitle.TLabel",
             wraplength=280,
         ).pack(anchor="w", pady=(3, 6))
-        ttk.Button(header, text="🔄 Refrescar datos", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
-        ttk.Button(header, text="💾 Crear backup", style="Primary.TButton", command=self.create_backup).pack(fill="x", pady=(6, 0))
+        ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
+        ttk.Button(header, text="💾 Create backup", style="Primary.TButton", command=self.create_backup).pack(fill="x", pady=(6, 0))
 
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
         kpi.pack(fill="x", padx=8)
@@ -269,7 +269,7 @@ class App(tk.Tk):
         self.nb.add(panel, text="Admin")
 
         ttk.Label(panel, text="Admin · User Management", style="Title.TLabel").pack(anchor="w", padx=12, pady=(12, 6))
-        ttk.Label(panel, text="Gestiona usuarios y contraseñas desde una sección separada.", style="Subtitle.TLabel").pack(anchor="w", padx=12, pady=(0, 8))
+        ttk.Label(panel, text="Manage users and passwords from this dedicated section.", style="Subtitle.TLabel").pack(anchor="w", padx=12, pady=(0, 8))
 
         forms = ttk.Frame(panel, style="App.TFrame")
         forms.pack(fill="both", expand=True, padx=12, pady=(0, 10))
@@ -288,7 +288,7 @@ class App(tk.Tk):
         self.new_pin_e = ttk.Entry(create_box, show="*")
         self.new_pin_e.grid(row=3, column=0, sticky="ew", padx=10)
 
-        ttk.Label(create_box, text="Rol").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
+        ttk.Label(create_box, text="Role").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
         self.new_role_var = tk.StringVar(value="seller")        
         ttk.Combobox(create_box, textvariable=self.new_role_var, values=["seller", "viewer"], state="readonly").grid(row=5, column=0, sticky="ew", padx=10)
 
@@ -316,7 +316,7 @@ class App(tk.Tk):
         bar = ttk.Frame(self, style="App.TFrame")
         bar.pack(fill="x", padx=12, pady=(0, 10))
         ttk.Label(bar, textvariable=self.status_var, style="Status.TLabel").pack(side="left")
-        ttk.Label(bar, text="Shortcut: Enter=main action | Ctrl+1..4 navegate", style="Status.TLabel").pack(side="left", padx=18)
+        ttk.Label(bar, text="Shortcut: Enter=main action | Ctrl+1..4 navigate", style="Status.TLabel").pack(side="left", padx=18)
         ttk.Label(bar, text=f"Logs: {self.logs_dir}", style="Status.TLabel").pack(side="right")
 
     def _bind_keyboard_shortcuts(self):
@@ -387,7 +387,7 @@ class App(tk.Tk):
             self.new_user_e.delete(0, tk.END)
             self.new_pin_e.delete(0, tk.END)
             self.new_role_var.set("seller")
-            self.toast(f"User created successfuly (ID {uid}).", kind="success")
+            self.toast(f"User created successfully (ID {uid}).", kind="success")
         except Exception as e:
             self.handle_error("User management", e, "The user could not be created.")
 
@@ -400,7 +400,7 @@ class App(tk.Tk):
             self.current_pin_e.delete(0, tk.END)
             self.new_admin_pin_e.delete(0, tk.END)
             self.confirm_admin_pin_e.delete(0, tk.END)
-            self.toast("Password successfuly updated.", kind="success")
+            self.toast("Password successfully updated.", kind="success")
         except Exception as e:
             self.handle_error("Admin profile", e, "The password could not be updated.")
 
@@ -432,9 +432,9 @@ class App(tk.Tk):
     def create_backup(self):
         try:
             path = self.backup.create_backup()
-            self.toast(f"Backup creado: {path.name}", kind="success")
+            self.toast(f"Backup created: {path.name}", kind="success")
         except Exception as e:
-            self.handle_error("Backup", e, "No se pudo crear el backup.")
+            self.handle_error("Backup", e, "Could not create backup.")
 
     def update_fx(self, silent: bool = False):
         try:

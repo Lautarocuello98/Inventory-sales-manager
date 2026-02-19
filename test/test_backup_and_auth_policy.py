@@ -27,7 +27,7 @@ def test_auth_service_locks_after_failed_attempts(tmp_path: Path):
 
     with pytest.raises(Exception):
         auth.login("admin", "bad")
-    with pytest.raises(Exception, match="bloqueado"):
+    with pytest.raises(Exception, match="locked"):
         auth.login("admin", "bad")
 
 

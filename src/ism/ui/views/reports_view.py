@@ -56,23 +56,23 @@ class ReportsView:
 
     def _draw_monthly_sales(self):
         data = self.app.reporting.monthly_sales_totals(6)
-        self._draw_bar_chart(self.sales_canvas, "Ventas mensuales (USD)", data, color="#2563eb")
+        self._draw_bar_chart(self.sales_canvas, "Monthly sales (USD)", data, color="#2563eb")
 
     def _draw_critical_stock(self):
         rows = self.app.inventory.top_critical_stock(8)
         data = [(sku, max(min_s - stock, 0)) for sku, stock, min_s in rows]
-        self._draw_bar_chart(self.stock_canvas, "Stock crítico (faltante vs mínimo)", data, color="#d64545")
+        self._draw_bar_chart(self.stock_canvas, "Critical stock (missing vs minimum)", data, color="#d64545")
 
     def _draw_cumulative_profit(self):
         data = self.app.reporting.cumulative_profit_series()
-        self._draw_line_chart(self.profit_canvas, "Profit acumulado", data)
+        self._draw_line_chart(self.profit_canvas, "Cumulative profit", data)
 
     def _draw_bar_chart(self, canvas: tk.Canvas, title: str, data: list[tuple[str, float]], color: str = "#2b78c2"):
         canvas.delete("all")
         w, h = int(canvas.winfo_width() or 560), int(canvas.winfo_height() or 200)
         canvas.create_text(12, 16, text=title, anchor="w", font=("Segoe UI", 10, "bold"), fill="#0f172a")
         if not data:
-            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#64748b")
+            canvas.create_text(w // 2, h // 2, text="No data", fill="#64748b")
             return
         maxv = max(v for _, v in data) or 1
         bw = max(24, (w - 40) // len(data))
@@ -90,7 +90,7 @@ class ReportsView:
         w, h = int(canvas.winfo_width() or 1100), int(canvas.winfo_height() or 200)
         canvas.create_text(12, 16, text=title, anchor="w", font=("Segoe UI", 10, "bold"), fill="#0f172a")
         if not data:
-            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#64748b")
+            canvas.create_text(w // 2, h // 2, text="No data", fill="#64748b")
             return
         vals = [v for _, v in data]
         minv, maxv = min(vals), max(vals)
