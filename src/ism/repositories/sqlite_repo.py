@@ -332,7 +332,7 @@ class SqliteRepository:
                 SET name=?, cost_usd=?, price_usd=?, stock=?, min_stock=?, active=1
                 WHERE sku=?
             """,
-                (sku, name, cost_usd, price_usd, stock, min_stock),
+                (name, cost_usd, price_usd, stock, min_stock, sku),
             )
         else:
             cur.execute(

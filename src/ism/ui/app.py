@@ -52,8 +52,8 @@ class App(tk.Tk):
         self._build_styles()
         self._build_topbar()
 
-        main = ttk.Frame(self)
         main = ttk.Frame(self, style="App.TFrame")
+        main.pack(fill="both", expand=True, padx=12, pady=(0, 10))
 
         self.sidebar = ttk.Frame(main, style="Card.TFrame")
         self.sidebar.pack(side="left", fill="y", padx=(0, 14))
@@ -181,8 +181,8 @@ class App(tk.Tk):
         lowbox = ttk.LabelFrame(self.sidebar, text="Low Stock (double click)")
         lowbox.pack(fill="both", expand=True, pady=(10, 0), padx=8)
 
-        self.low_list = tk.Listbox(lowbox, height=10)
         self.low_list = tk.Listbox(lowbox, height=10, relief="flat", highlightthickness=1, highlightbackground="#d0d7de")
+        self.low_list.pack(fill="both", expand=True, padx=8, pady=8)
         self.low_list.bind("<Double-1>", self.on_low_stock_open)
         self._low_items = []
 
@@ -209,7 +209,7 @@ class App(tk.Tk):
         bar = ttk.Frame(self, style="App.TFrame")
         bar.pack(fill="x", padx=12, pady=(0, 10))
         ttk.Label(bar, textvariable=self.status_var).pack(side="left")
-        ttk.Label(bar, text="Atajos: Enter=acción principal | Ctrl+1..4 navegar").pack(side="left", padx=18)
+        ttk.Label(bar, text="Shortcut: Enter=main action | Ctrl+1..4 navegate").pack(side="left", padx=18)
         ttk.Label(bar, text=f"Logs: {self.logs_dir}").pack(side="right")
 
     def _bind_keyboard_shortcuts(self):
