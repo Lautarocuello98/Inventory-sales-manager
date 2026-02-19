@@ -311,6 +311,20 @@ class SqliteRepository:
         conn.commit()
         conn.close()
         return uid
+    
+    def change_user_pin(self, user_id: int, current_pin: str, new_pin: str) -> bool:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT pin FROM users WHERE id=? AND active=1", (int(user_id),))
+        row = cur.fetchone()
+        if not row or not self._verify_pin(str(row[0]), current_pin):
+            conn.close()
+            return False
+
+        cur.execute("UPDATE users SET pin=? WHERE id=?", (self._hash_pin(new_pin), int(user_id)))
+        conn.commit()
+        conn.close()
+        return True
 
     # ---------- Products ----------
     def add_product(self, sku: str, name: str, cost_usd: float, price_usd: float, stock: int, min_stock: int) -> int:

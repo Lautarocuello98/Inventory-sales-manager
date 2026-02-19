@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ism.domain.errors import ValidationError
+from ism.domain.errors import AuthorizationError, ValidationError
 from ism.repositories.sqlite_repo import SqliteRepository
 from ism.services.auth_service import AuthService
 from ism.services.inventory_service import InventoryService
@@ -110,3 +110,27 @@ def test_reports_export_denied_for_unknown_role():
 
     assert calls and calls[0][0] == "Export error"
     assert "no puede exportar" in calls[0][1]
+
+def test_admin_can_change_own_password(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "change_pin.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin = auth.login("admin", "ChangeMeNow!")
+    auth.change_my_pin(admin, "ChangeMeNow!", "NewPass123", "NewPass123")
+
+    with pytest.raises(AuthorizationError):
+        auth.login("admin", "ChangeMeNow!")
+
+    updated = auth.login("admin", "NewPass123")
+    assert updated.username == "admin"
+
+
+def test_admin_cannot_change_password_with_wrong_current_pin(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "change_pin_fail.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin = auth.login("admin", "ChangeMeNow!")
+    with pytest.raises(AuthorizationError):
+        auth.change_my_pin(admin, "bad-current", "NewPass123", "NewPass123")

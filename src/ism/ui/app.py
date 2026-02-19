@@ -274,6 +274,24 @@ class App(tk.Tk):
         ttk.Combobox(panel, textvariable=self.new_role_var, values=["seller", "viewer"], state="readonly").grid(row=5, column=0, sticky="ew", padx=10)
 
         ttk.Button(panel, text="Create User", style="Primary.TButton", command=self.create_user_from_admin).grid(row=6, column=0, sticky="ew", padx=10, pady=(10, 10))
+        
+        ttk.Separator(panel, orient="horizontal").grid(row=7, column=0, sticky="ew", padx=10, pady=(2, 8))
+
+        ttk.Label(panel, text="Change my password").grid(row=8, column=0, sticky="w", padx=10, pady=(0, 4))
+
+        ttk.Label(panel, text="Current").grid(row=9, column=0, sticky="w", padx=10, pady=(0, 4))
+        self.current_pin_e = ttk.Entry(panel, show="*")
+        self.current_pin_e.grid(row=10, column=0, sticky="ew", padx=10)
+
+        ttk.Label(panel, text="New").grid(row=11, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_admin_pin_e = ttk.Entry(panel, show="*")
+        self.new_admin_pin_e.grid(row=12, column=0, sticky="ew", padx=10)
+
+        ttk.Label(panel, text="Confirm new").grid(row=13, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.confirm_admin_pin_e = ttk.Entry(panel, show="*")
+        self.confirm_admin_pin_e.grid(row=14, column=0, sticky="ew", padx=10)
+
+        ttk.Button(panel, text="Update password", style="Primary.TButton", command=self.change_my_password_from_admin).grid(row=15, column=0, sticky="ew", padx=10, pady=(10, 10))
         panel.columnconfigure(0, weight=1)
 
     def _build_status_bar(self):
@@ -324,6 +342,19 @@ class App(tk.Tk):
             self.toast(f"User created successfuly (ID {uid}).", kind="success")
         except Exception as e:
             self.handle_error("User management", e, "The user could not be created.")
+
+    def change_my_password_from_admin(self):
+        try:
+            current_pin = self.current_pin_e.get().strip()
+            new_pin = self.new_admin_pin_e.get().strip()
+            confirm_pin = self.confirm_admin_pin_e.get().strip()
+            self.auth.change_my_pin(self.current_user, current_pin, new_pin, confirm_pin)
+            self.current_pin_e.delete(0, tk.END)
+            self.new_admin_pin_e.delete(0, tk.END)
+            self.confirm_admin_pin_e.delete(0, tk.END)
+            self.toast("Password successfuly updated.", kind="success")
+        except Exception as e:
+            self.handle_error("Admin profile", e, "The password could not be updated.")
 
     def handle_error(self, title: str, err: Exception, toast_text: str) -> None:
         if isinstance(err, AppError):
