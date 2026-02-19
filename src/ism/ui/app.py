@@ -70,6 +70,9 @@ class App(tk.Tk):
         self.sales_view = SalesView(self.nb, self)
         self.restock_view = RestockView(self.nb, self)
         self.reports_view = ReportsView(self.nb, self)
+        self.admin_view = None
+        if self.can("admin"):
+            self.admin_view = self._build_admin_tab()
 
         self._build_sidebar()
         self._build_status_bar()
@@ -212,9 +215,6 @@ class App(tk.Tk):
         ).pack(anchor="w", pady=(3, 6))
         ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
 
-        if self.can("admin"):
-            self._build_user_admin_panel()
-
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
         kpi.pack(fill="x", padx=8)
 
@@ -257,42 +257,53 @@ class App(tk.Tk):
         self.low_list.bind("<Double-1>", self.on_low_stock_open)
         self._low_items = []
 
-    def _build_user_admin_panel(self):
-        panel = ttk.LabelFrame(self.sidebar, text="Admin · User Management")
-        panel.pack(fill="x", padx=8, pady=(0, 10))
+    def _build_admin_tab(self):
+        panel = ttk.Frame(self.nb, style="App.TFrame")
+        self.nb.add(panel, text="Admin")
 
-        ttk.Label(panel, text="New User").grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
-        self.new_user_e = ttk.Entry(panel)
+        ttk.Label(panel, text="Admin · User Management", style="Title.TLabel").pack(anchor="w", padx=12, pady=(12, 6))
+        ttk.Label(panel, text="Gestiona usuarios y contraseñas desde una sección separada.", style="Subtitle.TLabel").pack(anchor="w", padx=12, pady=(0, 8))
+
+        forms = ttk.Frame(panel, style="App.TFrame")
+        forms.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+
+        create_box = ttk.LabelFrame(forms, text="Add user")
+        create_box.pack(side="left", fill="both", expand=True, padx=(0, 8))
+
+        password_box = ttk.LabelFrame(forms, text="Change my password")
+        password_box.pack(side="right", fill="both", expand=True, padx=(8, 0))
+
+        ttk.Label(create_box, text="New User").grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_user_e = ttk.Entry(create_box)
         self.new_user_e.grid(row=1, column=0, sticky="ew", padx=10)
 
-        ttk.Label(panel, text="PIN").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
-        self.new_pin_e = ttk.Entry(panel, show="*")
+        ttk.Label(create_box, text="PIN").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_pin_e = ttk.Entry(create_box, show="*")
         self.new_pin_e.grid(row=3, column=0, sticky="ew", padx=10)
 
-        ttk.Label(panel, text="Rol").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
-        self.new_role_var = tk.StringVar(value="seller")
-        ttk.Combobox(panel, textvariable=self.new_role_var, values=["seller", "viewer"], state="readonly").grid(row=5, column=0, sticky="ew", padx=10)
+        ttk.Label(create_box, text="Rol").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_role_var = tk.StringVar(value="seller")        
+        ttk.Combobox(create_box, textvariable=self.new_role_var, values=["seller", "viewer"], state="readonly").grid(row=5, column=0, sticky="ew", padx=10)
 
-        ttk.Button(panel, text="Create User", style="Primary.TButton", command=self.create_user_from_admin).grid(row=6, column=0, sticky="ew", padx=10, pady=(10, 10))
-        
-        ttk.Separator(panel, orient="horizontal").grid(row=7, column=0, sticky="ew", padx=10, pady=(2, 8))
+        ttk.Button(create_box, text="Create User", style="Primary.TButton", command=self.create_user_from_admin).grid(row=6, column=0, sticky="ew", padx=10, pady=(10, 10))
 
-        ttk.Label(panel, text="Change my password").grid(row=8, column=0, sticky="w", padx=10, pady=(0, 4))
+        ttk.Label(password_box, text="Current").grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.current_pin_e = ttk.Entry(password_box, show="*")
+        self.current_pin_e.grid(row=1, column=0, sticky="ew", padx=10)
 
-        ttk.Label(panel, text="Current").grid(row=9, column=0, sticky="w", padx=10, pady=(0, 4))
-        self.current_pin_e = ttk.Entry(panel, show="*")
-        self.current_pin_e.grid(row=10, column=0, sticky="ew", padx=10)
+        ttk.Label(password_box, text="New").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_admin_pin_e = ttk.Entry(password_box, show="*")
+        self.new_admin_pin_e.grid(row=3, column=0, sticky="ew", padx=10)
 
-        ttk.Label(panel, text="New").grid(row=11, column=0, sticky="w", padx=10, pady=(8, 4))
-        self.new_admin_pin_e = ttk.Entry(panel, show="*")
-        self.new_admin_pin_e.grid(row=12, column=0, sticky="ew", padx=10)
+        ttk.Label(password_box, text="Confirm new").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.confirm_admin_pin_e = ttk.Entry(password_box, show="*")
+        self.confirm_admin_pin_e.grid(row=5, column=0, sticky="ew", padx=10)
 
-        ttk.Label(panel, text="Confirm new").grid(row=13, column=0, sticky="w", padx=10, pady=(8, 4))
-        self.confirm_admin_pin_e = ttk.Entry(panel, show="*")
-        self.confirm_admin_pin_e.grid(row=14, column=0, sticky="ew", padx=10)
+        ttk.Button(password_box, text="Update password", style="Primary.TButton", command=self.change_my_password_from_admin).grid(row=6, column=0, sticky="ew", padx=10, pady=(10, 10))
 
-        ttk.Button(panel, text="Update password", style="Primary.TButton", command=self.change_my_password_from_admin).grid(row=15, column=0, sticky="ew", padx=10, pady=(10, 10))
-        panel.columnconfigure(0, weight=1)
+        create_box.columnconfigure(0, weight=1)
+        password_box.columnconfigure(0, weight=1)
+        return panel
 
     def _build_status_bar(self):
         bar = ttk.Frame(self, style="App.TFrame")
@@ -306,28 +317,58 @@ class App(tk.Tk):
         self.bind("<Control-Key-2>", lambda _e: self.nb.select(self.sales_view.frame))
         self.bind("<Control-Key-3>", lambda _e: self.nb.select(self.restock_view.frame))
         self.bind("<Control-Key-4>", lambda _e: self.nb.select(self.reports_view.frame))
+        if self.admin_view is not None:
+            self.bind("<Control-Key-5>", lambda _e: self.nb.select(self.admin_view))
 
         self.bind_class("TEntry", "<Return>", self._invoke_default_action, add="+")
         self.bind_class("Entry", "<Return>", self._invoke_default_action, add="+")
         self.bind_class("TCombobox", "<Return>", self._invoke_default_action, add="+")
 
+    def _collect_buttons(self, container):
+        if container is None or not hasattr(container, "winfo_children"):
+            return []
+        found = []
+        stack = list(container.winfo_children())
+        while stack:
+            child = stack.pop(0)
+            if isinstance(child, ttk.Button):
+                found.append(child)
+            if hasattr(child, "winfo_children"):
+                stack.extend(child.winfo_children())
+        return found
+
     def _invoke_default_action(self, event):
         widget = event.widget
-        parent = widget.winfo_toplevel()
-        buttons = [w for w in parent.winfo_children() if isinstance(w, ttk.Button)]
-        if not buttons and hasattr(parent, "winfo_children"):
-            stack = list(parent.winfo_children())
-            while stack:
-                child = stack.pop()
-                if isinstance(child, ttk.Button):
-                    buttons.append(child)
-                if hasattr(child, "winfo_children"):
-                    stack.extend(child.winfo_children())
-        for btn in buttons:
-            state = str(btn.cget("state"))
-            if state != "disabled":
+        current_tab = self.nametowidget(self.nb.select()) if self.nb.select() else None
+
+        containers = []
+        cursor = widget
+        while cursor is not None:
+            containers.append(cursor)
+            if cursor == current_tab:
+                break
+            parent_name = cursor.winfo_parent()
+            if not parent_name:
+                break
+            cursor = cursor.nametowidget(parent_name)
+
+        def first_enabled(buttons):
+            for btn in buttons:
+                state = str(btn.cget("state"))
+                if state != "disabled" and btn.winfo_ismapped():
+                    return btn
+            return None
+
+        for container in containers:
+            btn = first_enabled(self._collect_buttons(container))
+            if btn is not None:
                 btn.invoke()
                 return "break"
+
+        btn = first_enabled(self._collect_buttons(current_tab))
+        if btn is not None:
+            btn.invoke()
+            return "break"
         return None
 
     def create_user_from_admin(self):
