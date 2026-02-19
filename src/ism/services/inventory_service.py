@@ -32,7 +32,17 @@ class InventoryService:
         if price <= 0:
             raise ValidationError("Price must be > 0.")
         return self.repo.add_product(sku, name, float(cost), float(price), int(stock), int(min_stock))
-
+    
+    def delete_product(self, product_id: int) -> None:
+        product = self.repo.get_product_by_id(int(product_id))
+        if not product:
+            raise NotFoundError("Product not found.")
+        if int(product.stock) > 0:
+            raise ValidationError("Cannot delete product with stock > 0.")
+        removed = self.repo.deactivate_product(int(product_id))
+        if not removed:
+            raise NotFoundError("Product not found.")
+    
     def upsert_product_keep_stock(self, sku: str, name: str, cost: float, price: float, min_stock: int) -> int:
         p = self.repo.get_product_by_sku(sku)
         if p:

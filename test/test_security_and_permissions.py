@@ -134,3 +134,24 @@ def test_admin_cannot_change_password_with_wrong_current_pin(tmp_path: Path):
     admin = auth.login("admin", "ChangeMeNow!")
     with pytest.raises(AuthorizationError):
         auth.change_my_pin(admin, "bad-current", "NewPass123", "NewPass123")
+
+def test_admin_can_delete_product_with_zero_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "delete_ok.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-DEL-1", "To delete", 1.0, 2.0, 0, 0)
+    inv.delete_product(pid)
+
+    assert repo.get_product_by_id(pid) is None
+
+
+def test_cannot_delete_product_with_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "delete_fail.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-DEL-2", "Cannot delete", 1.0, 2.0, 3, 0)
+
+    with pytest.raises(ValidationError, match="stock > 0"):
+        inv.delete_product(pid)

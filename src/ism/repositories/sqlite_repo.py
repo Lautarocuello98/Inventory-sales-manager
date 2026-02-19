@@ -418,6 +418,21 @@ class SqliteRepository:
         conn.close()
         return [(str(r[0]), int(r[1]), int(r[2])) for r in rows]
 
+    def deactivate_product(self, product_id: int) -> bool:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE products
+            SET active=0
+            WHERE id=? AND active=1
+            """,
+            (int(product_id),),
+        )
+        changed = cur.rowcount > 0
+        conn.commit()
+        conn.close()
+        return bool(changed)
 
     def get_product_by_sku(self, sku: str) -> Optional[Product]:
         conn = self._conn()

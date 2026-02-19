@@ -32,11 +32,11 @@ class ProductsView:
         btns.grid(row=6, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 10))
         btns.columnconfigure(0, weight=1)
         btns.columnconfigure(1, weight=1)
+        btns.columnconfigure(2, weight=1)
 
-        ttk.Button(btns, text="Add", style="Big.TButton", command=self.on_add_product)\
-            .grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ttk.Button(btns, text="Clear", style="Big.TButton", command=self.clear_form)\
-            .grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ttk.Button(btns, text="Add", style="Big.TButton", command=self.on_add_product)            .grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ttk.Button(btns, text="Delete", style="Big.TButton", command=self.on_delete_product)            .grid(row=0, column=1, sticky="ew", padx=6)
+        ttk.Button(btns, text="Clear", style="Big.TButton", command=self.clear_form)            .grid(row=0, column=2, sticky="ew", padx=(6, 0))
  
         for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
             entry.bind("<Return>", lambda _e: self.on_add_product())
@@ -48,17 +48,25 @@ class ProductsView:
             "cost": "Cost USD", "price": "Price USD",
             "stock": "Stock", "min": "Min"
         }
-        widths = {"id": 60, "sku": 130, "name": 360, "cost": 110, "price": 110, "stock": 90, "min": 90}
+        widths = {"id": 60, "sku": 130, "name": 360, "cost": 110, "price": 110, "stock": 90, "min": 110}
         for c in cols:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=widths[c], anchor="w")
 
         self.tree.tag_configure("low", background="#ffdddd")
 
-        vsb = ttk.Scrollbar(right, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
-        vsb.pack(side="right", fill="y", padx=(0, 10), pady=10)
+        tree_wrap = ttk.Frame(right)
+        tree_wrap.pack(fill="both", expand=True, padx=10, pady=10)
+
+        vsb = ttk.Scrollbar(tree_wrap, orient="vertical", command=self.tree.yview)
+        hsb = ttk.Scrollbar(tree_wrap, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+
+        tree_wrap.columnconfigure(0, weight=1)
+        tree_wrap.rowconfigure(0, weight=1)
 
         # IMPORTANT:
         # Do NOT call refresh() here.
@@ -122,6 +130,33 @@ class ProductsView:
 
         except Exception as e:
             self.app.handle_error("Error", e, "Failed to add product.")
+            
+    def on_delete_product(self):
+        try:
+            if not self.app.can("admin"):
+                raise PermissionError("Solo admin puede borrar productos.")
+
+            selected = self.tree.selection()
+            if not selected:
+                raise ValueError("Selecciona un producto para borrar.")
+
+            values = self.tree.item(selected[0], "values")
+            product_id = int(values[0])
+            product_name = str(values[2])
+
+            confirmed = messagebox.askyesno(
+                "Confirm delete",
+                f"Delete product '{product_name}' (ID {product_id})?\n\nOnly products with stock 0 can be deleted.",
+                parent=self.frame,
+            )
+            if not confirmed:
+                return
+
+            self.app.inventory.delete_product(product_id)
+            self.app.toast("Product deleted.", kind="success")
+            self.app.refresh_all(silent_fx=True)
+        except Exception as e:
+            self.app.handle_error("Delete product", e, "Failed to delete product.")
 
     def clear_form(self):
         for e in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
