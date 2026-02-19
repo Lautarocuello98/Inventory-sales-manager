@@ -15,11 +15,16 @@ class ProductsView:
         notebook.add(self.frame, text="Products")
 
         tab = self.frame
-        left = ttk.LabelFrame(tab, text="Add product")
-        left.pack(side="left", fill="y", padx=(0, 12), pady=10)
+        style = ttk.Style(self.frame)
+        style.configure("ProductsCompact.Treeview", rowheight=24, font=("Segoe UI", 9))
+        style.configure("ProductsCompact.Treeview.Heading", font=("Segoe UI", 9, "bold"))
+
+        left = ttk.LabelFrame(tab, text="Add product", width=255)
+        left.pack(side="left", fill="y", padx=(0, 6), pady=8)
+        left.pack_propagate(False)
 
         right = ttk.LabelFrame(tab, text="Products list")
-        right.pack(side="right", fill="both", expand=True, pady=10)
+        right.pack(side="right", fill="both", expand=True, pady=8)
 
         self.p_sku = self._entry(left, "SKU", 0)
         self.p_name = self._entry(left, "Name", 1)
@@ -29,28 +34,28 @@ class ProductsView:
         self.p_min = self._entry(left, "Min stock", 5)
 
         btns = ttk.Frame(left)
-        btns.grid(row=6, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 10))
+        btns.grid(row=6, column=0, columnspan=2, sticky="ew", padx=8, pady=(6, 8))
         btns.columnconfigure(0, weight=1)
         btns.columnconfigure(1, weight=1)
         btns.columnconfigure(2, weight=1)
 
-        ttk.Button(btns, text="Add", style="Big.TButton", command=self.on_add_product)            .grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ttk.Button(btns, text="Delete", style="Big.TButton", command=self.on_delete_product)            .grid(row=0, column=1, sticky="ew", padx=6)
-        ttk.Button(btns, text="Clear", style="Big.TButton", command=self.clear_form)            .grid(row=0, column=2, sticky="ew", padx=(6, 0))
- 
+        ttk.Button(btns, text="Add", command=self.on_add_product)            .grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ttk.Button(btns, text="Delete", command=self.on_delete_product)            .grid(row=0, column=1, sticky="ew", padx=6)
+        ttk.Button(btns, text="Clear", command=self.clear_form)            .grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        
         for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
             entry.bind("<Return>", lambda _e: self.on_add_product())
         tree_wrap = ttk.Frame(right)
-        tree_wrap.pack(fill="both", expand=True, padx=10, pady=10)
+        tree_wrap.pack(fill="both", expand=True, padx=6, pady=6)
 
         cols = ("id", "sku", "name", "cost", "price", "stock", "min")
-        self.tree = ttk.Treeview(tree_wrap, columns=cols, show="headings", height=20, style="Modern.Treeview")
+        self.tree = ttk.Treeview(tree_wrap, columns=cols, show="headings", height=20, style="ProductsCompact.Treeview")
         heads = {
             "id": "ID", "sku": "SKU", "name": "Name",
             "cost": "Cost USD", "price": "Price USD",
             "stock": "Stock", "min": "Min"
         }
-        widths = {"id": 60, "sku": 130, "name": 360, "cost": 110, "price": 110, "stock": 90, "min": 110}
+        widths = {"id": 48, "sku": 105, "name": 280, "cost": 92, "price": 92, "stock": 78, "min": 86}
         for c in cols:
             self.tree.heading(c, text=heads[c])
             self.tree.column(c, width=widths[c], anchor="w")
@@ -72,9 +77,9 @@ class ProductsView:
         # App will call refresh_all() after all views are created.
 
     def _entry(self, parent, label, row):
-        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=6)
-        e = ttk.Entry(parent, width=28)
-        e.grid(row=row, column=1, sticky="ew", padx=10, pady=6)
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=8, pady=4)
+        e = ttk.Entry(parent, width=16)
+        e.grid(row=row, column=1, sticky="ew", padx=8, pady=4)
         parent.columnconfigure(1, weight=1)
         return e
 
