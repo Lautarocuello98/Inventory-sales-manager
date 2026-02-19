@@ -29,7 +29,7 @@ class SalesView:
         tab = self.frame
 
         top = ttk.LabelFrame(tab, text="Add item to cart")
-        top.pack(fill="x", padx=10, pady=10)
+        top.pack(fill="x", padx=10, pady=(10, 6))
 
         ttk.Label(top, text="Search product (SKU or name)").grid(row=0, column=0, padx=10, pady=8, sticky="w")
 
@@ -48,13 +48,13 @@ class SalesView:
         self.qty_e.bind("<Return>", self._on_enter_add_to_cart)
 
         mid = ttk.Frame(tab)
-        mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        mid.pack(fill="x", padx=10, pady=(0, 6))
 
         cart_box = ttk.LabelFrame(mid, text="Cart")
         cart_box.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         cols = ("sku", "name", "qty", "unit", "line")
-        self.cart_tree = ttk.Treeview(cart_box, columns=cols, show="headings", height=16, style="Modern.Treeview")
+        self.cart_tree = ttk.Treeview(cart_box, columns=cols, show="headings", height=9, style="Modern.Treeview")
         heads = {"sku": "SKU", "name": "Name", "qty": "Qty", "unit": "Unit USD", "line": "Line USD"}
         widths = {"sku": 120, "name": 420, "qty": 70, "unit": 110, "line": 110}
         for c in cols:
@@ -96,7 +96,7 @@ class SalesView:
         ttk.Button(top2, text="Refresh", command=self.refresh_history).pack(side="left", padx=10)
 
         cols = ("id", "dt", "usd", "fx", "ars", "notes")
-        self.sales_tree = ttk.Treeview(hist, columns=cols, show="headings", height=8, style="Modern.Treeview")
+        self.sales_tree = ttk.Treeview(hist, columns=cols, show="headings", height=12, style="Modern.Treeview")
         heads = {"id": "Sale ID", "dt": "Datetime", "usd": "Total USD", "fx": "FX", "ars": "Total ARS", "notes": "Notes"}
         widths = {"id": 90, "dt": 200, "usd": 110, "fx": 90, "ars": 120, "notes": 520}
         for c in cols:

@@ -27,7 +27,7 @@ class RestockView:
         tab = self.frame
 
         top = ttk.LabelFrame(tab, text="Add restock item")
-        top.pack(fill="x", padx=10, pady=10)
+        top.pack(fill="x", padx=10, pady=(10, 6))
         top.columnconfigure(1, weight=1)
 
         ttk.Label(top, text="Search product (SKU or name)").grid(row=0, column=0, padx=10, pady=8, sticky="w")
@@ -52,13 +52,13 @@ class RestockView:
         self.cost_e.bind("<Return>", self._on_enter_add_item)
 
         mid = ttk.Frame(tab)
-        mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        mid.pack(fill="x", padx=10, pady=(0, 6))
 
         box = ttk.LabelFrame(mid, text="Restock cart")
         box.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         cols = ("sku", "name", "qty", "unit", "line")
-        self.tree = ttk.Treeview(box, columns=cols, show="headings", height=12, style="Modern.Treeview")
+        self.tree = ttk.Treeview(box, columns=cols, show="headings", height=9, style="Modern.Treeview")
         heads = {"sku": "SKU", "name": "Name", "qty": "Qty", "unit": "Unit cost USD", "line": "Line USD"}
         widths = {"sku": 120, "name": 420, "qty": 70, "unit": 130, "line": 110}
         for c in cols:
@@ -105,7 +105,7 @@ class RestockView:
         ttk.Button(top2, text="Refresh", command=self.refresh_history).pack(side="left", padx=10)
 
         cols = ("id", "dt", "vendor", "total", "notes")
-        self.purchases_tree = ttk.Treeview(hist, columns=cols, show="headings", height=8, style="Modern.Treeview")
+        self.purchases_tree = ttk.Treeview(hist, columns=cols, show="headings", height=12, style="Modern.Treeview")
         heads = {"id": "Purchase ID", "dt": "Datetime", "vendor": "Vendor", "total": "Total USD", "notes": "Notes"}
         widths = {"id": 110, "dt": 200, "vendor": 160, "total": 120, "notes": 520}
         for c in cols:

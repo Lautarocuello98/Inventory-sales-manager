@@ -28,7 +28,7 @@ def test_default_admin_pin_is_hashed_and_login_works(tmp_path: Path):
     assert stored.startswith("pbkdf2_sha256$")
 
     auth = AuthService(repo)
-    user = auth.login("admin", "ChangeMeNow!")
+    user = auth.login("admin", "admin123!")
     assert user.username == "admin"
 
 
@@ -90,7 +90,7 @@ def test_reports_import_denied_for_viewer_role():
     view.import_excel()
 
     assert calls and calls[0][0] == "Import error"
-    assert "no puede importar" in calls[0][1]
+    assert "can not import" in calls[0][1]
 
 
 def test_reports_export_denied_for_unknown_role():
@@ -109,18 +109,18 @@ def test_reports_export_denied_for_unknown_role():
     view.export_report()
 
     assert calls and calls[0][0] == "Export error"
-    assert "no puede exportar" in calls[0][1]
+    assert "can not import" in calls[0][1]
 
 def test_admin_can_change_own_password(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "change_pin.db")
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "ChangeMeNow!")
-    auth.change_my_pin(admin, "ChangeMeNow!", "NewPass123", "NewPass123")
+    admin = auth.login("admin", "admin123!")
+    auth.change_my_pin(admin, "admin123!", "NewPass123", "NewPass123")
 
     with pytest.raises(AuthorizationError):
-        auth.login("admin", "ChangeMeNow!")
+        auth.login("admin", "admin123!")
 
     updated = auth.login("admin", "NewPass123")
     assert updated.username == "admin"
@@ -131,7 +131,7 @@ def test_admin_cannot_change_password_with_wrong_current_pin(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "ChangeMeNow!")
+    admin = auth.login("admin", "admin123!")
     with pytest.raises(AuthorizationError):
         auth.change_my_pin(admin, "bad-current", "NewPass123", "NewPass123")
 

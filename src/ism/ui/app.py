@@ -163,8 +163,8 @@ class App(tk.Tk):
             "Topbar.TFrame",
             background="#0f172a",
         )
-        style.configure("TopbarTitle.TLabel", background="#0f172a", foreground="#f8fafc", font=("Segoe UI", 13, "bold"))
-        style.configure("TopbarMeta.TLabel", background="#0f172a", foreground="#cbd5e1", font=("Segoe UI", 9))
+        style.configure("TopbarTitle.TLabel", background="#0f172a", foreground="#f8fafc", font=("Segoe UI", 11, "bold"))
+        style.configure("TopbarMeta.TLabel", background="#0f172a", foreground="#cbd5e1", font=("Segoe UI", 8))
         style.configure("Status.TLabel", background=bg, foreground=text_muted)
 
         style.configure("TButton", padding=(12, 9), font=("Segoe UI", 10), borderwidth=0)
@@ -193,17 +193,17 @@ class App(tk.Tk):
 
     def _build_topbar(self):
         top = ttk.Frame(self, style="Topbar.TFrame")
-        top.pack(fill="x", padx=16, pady=(12, 10))
+        top.pack(fill="x", padx=16, pady=(8, 6))
 
         left = ttk.Frame(top, style="Topbar.TFrame")
-        left.pack(side="left", fill="x", expand=True, padx=14, pady=12)
+        left.pack(side="left", fill="x", expand=True, padx=12, pady=8)
         ttk.Label(left, text="Inventory & Sales Manager", style="TopbarTitle.TLabel").pack(anchor="w")
         ttk.Label(left, textvariable=self.fx_var, style="TopbarMeta.TLabel").pack(anchor="w", pady=(2, 0))
 
-        ttk.Button(top, text="Refresh FX", style="Primary.TButton", command=self.update_fx).pack(side="left", padx=10)
+        ttk.Button(top, text="Refresh FX", style="Primary.TButton", command=self.update_fx).pack(side="left", padx=8, pady=6)
 
         right = ttk.Frame(top, style="Topbar.TFrame")
-        right.pack(side="right", padx=14)
+        right.pack(side="right", padx=12, pady=6)
         ttk.Label(right, text=f"User: {self.current_user.username} ({self.current_user.role})", style="TopbarMeta.TLabel").pack(anchor="e")
         ttk.Label(right, text=f"Base: {Path(self.db_path).name}", style="TopbarMeta.TLabel").pack(anchor="e")
 
