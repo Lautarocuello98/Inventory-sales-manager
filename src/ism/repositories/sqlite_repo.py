@@ -285,6 +285,21 @@ class SqliteRepository:
         conn.close()
         return User(id=int(row[0]), username=str(row[1]), role=str(row[2]), active=int(row[3])) if row else None
 
+    def create_user(self, username: str, pin: str, role: str) -> int:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO users (username, pin, role, active)
+            VALUES (?, ?, ?, 1)
+            """,
+            (username, pin, role),
+        )
+        uid = int(cur.lastrowid)
+        conn.commit()
+        conn.close()
+        return uid
+
     # ---------- Products ----------
     def add_product(self, sku: str, name: str, cost_usd: float, price_usd: float, stock: int, min_stock: int) -> int:
         conn = self._conn()

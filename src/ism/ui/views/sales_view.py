@@ -44,6 +44,9 @@ class SalesView:
         ttk.Button(top, text="Add to cart", style="Big.TButton", command=self.add_to_cart)\
             .grid(row=0, column=4, padx=10, pady=8)
 
+        self.combo.bind("<Return>", lambda _e: self.add_to_cart())
+        self.qty_e.bind("<Return>", lambda _e: self.add_to_cart())
+
         mid = ttk.Frame(tab)
         mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
@@ -75,6 +78,8 @@ class SalesView:
 
         ttk.Button(right, text="Confirm sale", style="Big.TButton", command=self.confirm_sale)\
             .pack(fill="x", padx=10, pady=(0, 10))
+
+        self.notes.bind("<Control-Return>", lambda _e: self.confirm_sale())
 
         # Sales history
         hist = ttk.LabelFrame(tab, text="Sales History (double click to view details)")

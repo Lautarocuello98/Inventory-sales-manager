@@ -46,6 +46,10 @@ class RestockView:
 
         ttk.Button(top, text="Add", style="Big.TButton", command=self.add_item)\
             .grid(row=1, column=0, columnspan=7, padx=10, pady=(0, 8), sticky="e")
+   
+        self.combo.bind("<Return>", lambda _e: self.add_item())
+        self.qty_e.bind("<Return>", lambda _e: self.add_item())
+        self.cost_e.bind("<Return>", lambda _e: self.add_item())
 
         mid = ttk.Frame(tab)
         mid.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -82,6 +86,9 @@ class RestockView:
 
         ttk.Button(right, text="Confirm restock", style="Big.TButton", command=self.confirm)\
             .pack(fill="x", padx=10, pady=(0, 10))
+ 
+        self.vendor_e.bind("<Return>", lambda _e: self.confirm())
+        self.notes.bind("<Control-Return>", lambda _e: self.confirm())
 
         # Purchases history
         hist = ttk.LabelFrame(tab, text="Purchases History (double click to view details)")

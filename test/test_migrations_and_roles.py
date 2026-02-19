@@ -33,3 +33,30 @@ def test_auth_rejects_wrong_pin(tmp_path: Path):
 
     with pytest.raises(AuthorizationError):
         auth.login("admin", "wrong")
+
+def test_admin_can_create_seller_and_viewer(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "u.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin = auth.login("admin", "admin123")
+    auth.create_user(admin, "seller1", "1234", "seller")
+    auth.create_user(admin, "viewer1", "1234", "viewer")
+
+    users = auth.list_users()
+    roles = {u.username: u.role for u in users}
+    assert roles["seller1"] == "seller"
+    assert roles["viewer1"] == "viewer"
+
+
+def test_non_admin_cannot_create_user(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "ua.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin = auth.login("admin", "admin123")
+    auth.create_user(admin, "seller2", "1234", "seller")
+    seller = auth.login("seller2", "1234")
+
+    with pytest.raises(AuthorizationError):
+        auth.create_user(seller, "x", "1234", "viewer")

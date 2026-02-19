@@ -37,6 +37,9 @@ class ProductsView:
             .grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ttk.Button(btns, text="Clear", style="Big.TButton", command=self.clear_form)\
             .grid(row=0, column=1, sticky="ew", padx=(6, 0))
+ 
+        for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
+            entry.bind("<Return>", lambda _e: self.on_add_product())
 
         cols = ("id", "sku", "name", "cost", "price", "stock", "min")
         self.tree = ttk.Treeview(right, columns=cols, show="headings", height=20)

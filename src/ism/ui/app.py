@@ -53,12 +53,12 @@ class App(tk.Tk):
         self._build_topbar()
 
         main = ttk.Frame(self)
-        main.pack(fill="both", expand=True, padx=16, pady=(0, 10))
+        main = ttk.Frame(self, style="App.TFrame")
 
-        self.sidebar = ttk.Frame(main)
+        self.sidebar = ttk.Frame(main, style="Card.TFrame")
         self.sidebar.pack(side="left", fill="y", padx=(0, 14))
 
-        self.content = ttk.Frame(main)
+        self.content = ttk.Frame(main, style="App.TFrame")
         self.content.pack(side="right", fill="both", expand=True)
 
         self.nb = ttk.Notebook(self.content, style="Side.TNotebook")
@@ -71,6 +71,7 @@ class App(tk.Tk):
 
         self._build_sidebar()
         self._build_status_bar()
+        self._bind_keyboard_shortcuts()
 
         self.refresh_all(silent_fx=True, show_toast=False)
         self.toast("Ready.", kind="info", ms=1200)
@@ -79,7 +80,7 @@ class App(tk.Tk):
         users = self.auth.list_users()
         dialog = tk.Toplevel(self)
         dialog.title("Login")
-        dialog.geometry("420x220")
+        dialog.geometry("430x240")
         dialog.transient(self)
         dialog.grab_set()
 
@@ -87,11 +88,16 @@ class App(tk.Tk):
         pin = tk.StringVar()
         result = {"user": None}
 
-        ttk.Label(dialog, text="Usuario", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=20, pady=(20, 4))
+        ttk.Label(dialog, text="Welcome", style="Title.TLabel").pack(anchor="w", padx=20, pady=(16, 2))
+        ttk.Label(dialog, text="Sign in for continue.").pack(anchor="w", padx=20, pady=(0, 12))
+
+        ttk.Label(dialog, text="User", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=20, pady=(2, 4))
         cb = ttk.Combobox(dialog, textvariable=username, values=[u.username for u in users], state="readonly")
         cb.pack(fill="x", padx=20)
+
         ttk.Label(dialog, text="PIN", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=20, pady=(12, 4))
-        ttk.Entry(dialog, textvariable=pin, show="*").pack(fill="x", padx=20)
+        pin_entry = ttk.Entry(dialog, textvariable=pin, show="*")
+        pin_entry.pack(fill="x", padx=20)
 
         def submit():
             try:
@@ -100,7 +106,10 @@ class App(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Login inválido", str(e), parent=dialog)
 
-        ttk.Button(dialog, text="Ingresar", command=submit).pack(pady=18)
+        ttk.Button(dialog, text="Enter", style="Primary.TButton", command=submit).pack(pady=18)
+        dialog.bind("<Return>", lambda _e: submit())
+        pin_entry.focus_set()
+
         self.wait_window(dialog)
         if not result["user"]:
             raise RuntimeError("Login is required")
@@ -109,18 +118,30 @@ class App(tk.Tk):
     def _build_styles(self):
         style = ttk.Style(self)
         style.theme_use("clam")
+        
+        bg = "#f3f6fb"
+        panel = "#ffffff"
+        accent = "#1f6feb"
+
         style.layout("Side.TNotebook.Tab", [])
-        style.configure("Side.TNotebook", tabmargins=0, background="#f4f7fb")
-        style.configure("TFrame", background="#f4f7fb")
-        style.configure("TLabelframe", background="#f4f7fb")
+        style.configure("Side.TNotebook", tabmargins=0, background=bg)
+        style.configure("App.TFrame", background=bg)
+        style.configure("Card.TFrame", background=panel, relief="flat")
+        style.configure("TFrame", background=bg)
+        style.configure("TLabelframe", background=bg, borderwidth=1)
         style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"))
-        style.configure("Big.TButton", padding=(14, 10))
+
+        style.configure("TButton", padding=(12, 9), font=("Segoe UI", 10))
+        style.configure("Big.TButton", padding=(14, 10), font=("Segoe UI", 10, "bold"))
+        style.configure("Primary.TButton", padding=(14, 10), font=("Segoe UI", 10, "bold"), foreground="white", background=accent)
+        style.map("Primary.TButton", background=[("active", "#1459bd")])
+
         style.configure("Title.TLabel", font=("Segoe UI", 12, "bold"))
-        style.configure("KPI.TLabel", font=("Segoe UI", 10))
+        style.configure("KPI.TLabel", font=("Segoe UI", 10), foreground="#57606a")
         style.configure("KPIValue.TLabel", font=("Segoe UI", 11, "bold"), foreground="#1f4e79")
 
     def _build_topbar(self):
-        top = ttk.Frame(self)
+        top = ttk.Frame(self, style="App.TFrame")
         top.pack(fill="x", padx=16, pady=12)
 
         ttk.Label(top, textvariable=self.fx_var, style="Title.TLabel").pack(side="left")
@@ -131,7 +152,7 @@ class App(tk.Tk):
 
     def _build_sidebar(self):
         box = ttk.LabelFrame(self.sidebar, text="Quick Actions")
-        box.pack(fill="x", pady=(0, 10))
+        box.pack(fill="x", pady=(0, 10), padx=8)
 
         ttk.Button(box, text="📦 Products", style="Big.TButton", command=lambda: self.nb.select(self.products_view.frame)).pack(fill="x", padx=10, pady=(10, 6))
         ttk.Button(box, text="🧾 New Sale", style="Big.TButton", command=lambda: self.nb.select(self.sales_view.frame)).pack(fill="x", padx=10, pady=6)
@@ -139,8 +160,11 @@ class App(tk.Tk):
         ttk.Button(box, text="📊 Reports + Dashboard", style="Big.TButton", command=lambda: self.nb.select(self.reports_view.frame)).pack(fill="x", padx=10, pady=6)
         ttk.Button(box, text="🔄 Refresh", style="Big.TButton", command=self.refresh_all).pack(fill="x", padx=10, pady=(6, 10))
 
+        if self.can("admin"):
+            self._build_user_admin_panel()
+
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
-        kpi.pack(fill="x")
+        kpi.pack(fill="x", padx=8)
 
         self.k_products = ttk.Label(kpi, text="-", style="KPIValue.TLabel")
         self.k_units = ttk.Label(kpi, text="-", style="KPIValue.TLabel")
@@ -155,24 +179,86 @@ class App(tk.Tk):
             w.grid(row=i, column=1, sticky="e", padx=10, pady=(8 if i == 0 else 2, 2))
 
         lowbox = ttk.LabelFrame(self.sidebar, text="Low Stock (double click)")
-        lowbox.pack(fill="both", expand=True, pady=(10, 0))
+        lowbox.pack(fill="both", expand=True, pady=(10, 0), padx=8)
 
         self.low_list = tk.Listbox(lowbox, height=10)
-        self.low_list.pack(fill="both", expand=True, padx=10, pady=10)
+        self.low_list = tk.Listbox(lowbox, height=10, relief="flat", highlightthickness=1, highlightbackground="#d0d7de")
         self.low_list.bind("<Double-1>", self.on_low_stock_open)
         self._low_items = []
 
+    def _build_user_admin_panel(self):
+        panel = ttk.LabelFrame(self.sidebar, text="Admin · User Management")
+        panel.pack(fill="x", padx=8, pady=(0, 10))
+
+        ttk.Label(panel, text="New User").grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_user_e = ttk.Entry(panel)
+        self.new_user_e.grid(row=1, column=0, sticky="ew", padx=10)
+
+        ttk.Label(panel, text="PIN").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_pin_e = ttk.Entry(panel, show="*")
+        self.new_pin_e.grid(row=3, column=0, sticky="ew", padx=10)
+
+        ttk.Label(panel, text="Rol").grid(row=4, column=0, sticky="w", padx=10, pady=(8, 4))
+        self.new_role_var = tk.StringVar(value="seller")
+        ttk.Combobox(panel, textvariable=self.new_role_var, values=["seller", "viewer"], state="readonly").grid(row=5, column=0, sticky="ew", padx=10)
+
+        ttk.Button(panel, text="Create User", style="Primary.TButton", command=self.create_user_from_admin).grid(row=6, column=0, sticky="ew", padx=10, pady=(10, 10))
+        panel.columnconfigure(0, weight=1)
+
     def _build_status_bar(self):
-        bar = ttk.Frame(self)
+        bar = ttk.Frame(self, style="App.TFrame")
         bar.pack(fill="x", padx=12, pady=(0, 10))
         ttk.Label(bar, textvariable=self.status_var).pack(side="left")
+        ttk.Label(bar, text="Atajos: Enter=acción principal | Ctrl+1..4 navegar").pack(side="left", padx=18)
         ttk.Label(bar, text=f"Logs: {self.logs_dir}").pack(side="right")
+
+    def _bind_keyboard_shortcuts(self):
+        self.bind("<Control-Key-1>", lambda _e: self.nb.select(self.products_view.frame))
+        self.bind("<Control-Key-2>", lambda _e: self.nb.select(self.sales_view.frame))
+        self.bind("<Control-Key-3>", lambda _e: self.nb.select(self.restock_view.frame))
+        self.bind("<Control-Key-4>", lambda _e: self.nb.select(self.reports_view.frame))
+
+        self.bind_class("TEntry", "<Return>", self._invoke_default_action, add="+")
+        self.bind_class("Entry", "<Return>", self._invoke_default_action, add="+")
+        self.bind_class("TCombobox", "<Return>", self._invoke_default_action, add="+")
+
+    def _invoke_default_action(self, event):
+        widget = event.widget
+        parent = widget.winfo_toplevel()
+        buttons = [w for w in parent.winfo_children() if isinstance(w, ttk.Button)]
+        if not buttons and hasattr(parent, "winfo_children"):
+            stack = list(parent.winfo_children())
+            while stack:
+                child = stack.pop()
+                if isinstance(child, ttk.Button):
+                    buttons.append(child)
+                if hasattr(child, "winfo_children"):
+                    stack.extend(child.winfo_children())
+        for btn in buttons:
+            state = str(btn.cget("state"))
+            if state != "disabled":
+                btn.invoke()
+                return "break"
+        return None
+
+    def create_user_from_admin(self):
+        try:
+            user = self.new_user_e.get().strip()
+            pin = self.new_pin_e.get().strip()
+            role = self.new_role_var.get().strip().lower()
+            uid = self.auth.create_user(self.current_user, user, pin, role)
+            self.new_user_e.delete(0, tk.END)
+            self.new_pin_e.delete(0, tk.END)
+            self.new_role_var.set("seller")
+            self.toast(f"User created successfuly (ID {uid}).", kind="success")
+        except Exception as e:
+            self.handle_error("User management", e, "The user could not be created.")
 
     def handle_error(self, title: str, err: Exception, toast_text: str) -> None:
         if isinstance(err, AppError):
             message = str(err)
         else:
-            message = f"Error inesperado: {err}"
+            message = f"Unexpected error: {err}"
         log.exception("%s: %s", title, err)
         messagebox.showerror(title, message)
         self.toast(toast_text, kind="error")
