@@ -40,13 +40,13 @@ class ReportsView:
         dash.columnconfigure(0, weight=1)
         dash.columnconfigure(1, weight=1)
 
-        self.sales_canvas = tk.Canvas(dash, height=200, bg="#ffffff", highlightthickness=1, highlightbackground="#ccd6e0")
+        self.sales_canvas = tk.Canvas(dash, height=200, bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1")
         self.sales_canvas.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
 
-        self.stock_canvas = tk.Canvas(dash, height=200, bg="#ffffff", highlightthickness=1, highlightbackground="#ccd6e0")
+        self.stock_canvas = tk.Canvas(dash, height=200, bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1")
         self.stock_canvas.grid(row=0, column=1, sticky="nsew", padx=6, pady=6)
 
-        self.profit_canvas = tk.Canvas(dash, height=200, bg="#ffffff", highlightthickness=1, highlightbackground="#ccd6e0")
+        self.profit_canvas = tk.Canvas(dash, height=200, bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1")
         self.profit_canvas.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=6, pady=6)
 
     def refresh(self):
@@ -56,7 +56,7 @@ class ReportsView:
 
     def _draw_monthly_sales(self):
         data = self.app.reporting.monthly_sales_totals(6)
-        self._draw_bar_chart(self.sales_canvas, "Ventas mensuales (USD)", data)
+        self._draw_bar_chart(self.sales_canvas, "Ventas mensuales (USD)", data, color="#2563eb")
 
     def _draw_critical_stock(self):
         rows = self.app.inventory.top_critical_stock(8)
@@ -70,9 +70,9 @@ class ReportsView:
     def _draw_bar_chart(self, canvas: tk.Canvas, title: str, data: list[tuple[str, float]], color: str = "#2b78c2"):
         canvas.delete("all")
         w, h = int(canvas.winfo_width() or 560), int(canvas.winfo_height() or 200)
-        canvas.create_text(10, 12, text=title, anchor="w", font=("Segoe UI", 10, "bold"))
+        canvas.create_text(12, 16, text=title, anchor="w", font=("Segoe UI", 10, "bold"), fill="#0f172a")
         if not data:
-            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#888")
+            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#64748b")
             return
         maxv = max(v for _, v in data) or 1
         bw = max(24, (w - 40) // len(data))
@@ -82,15 +82,15 @@ class ReportsView:
             y1 = h - 30
             y0 = y1 - int((val / maxv) * (h - 70))
             canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
-            canvas.create_text((x0 + x1) // 2, y1 + 12, text=label[-5:], font=("Segoe UI", 8))
-            canvas.create_text((x0 + x1) // 2, y0 - 8, text=f"{val:.0f}", font=("Segoe UI", 8))
+            canvas.create_text((x0 + x1) // 2, y1 + 12, text=label[-5:], font=("Segoe UI", 8), fill="#475569")
+            canvas.create_text((x0 + x1) // 2, y0 - 8, text=f"{val:.0f}", font=("Segoe UI", 8), fill="#0f172a")
 
     def _draw_line_chart(self, canvas: tk.Canvas, title: str, data: list[tuple[str, float]]):
         canvas.delete("all")
         w, h = int(canvas.winfo_width() or 1100), int(canvas.winfo_height() or 200)
-        canvas.create_text(10, 12, text=title, anchor="w", font=("Segoe UI", 10, "bold"))
+        canvas.create_text(12, 16, text=title, anchor="w", font=("Segoe UI", 10, "bold"), fill="#0f172a")
         if not data:
-            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#888")
+            canvas.create_text(w // 2, h // 2, text="Sin datos", fill="#64748b")
             return
         vals = [v for _, v in data]
         minv, maxv = min(vals), max(vals)
@@ -101,8 +101,8 @@ class ReportsView:
             y = h - 30 - int((v - minv) * (h - 70) / span)
             points.extend([x, y])
             if i % max(len(data)//6, 1) == 0:
-                canvas.create_text(x, h - 14, text=d[5:], font=("Segoe UI", 8))
-        canvas.create_line(*points, fill="#3f9f5f", width=2)
+                canvas.create_text(x, h - 14, text=d[5:], font=("Segoe UI", 8), fill="#475569")
+        canvas.create_line(*points, fill="#16a34a", width=3, smooth=True)
 
     def import_excel(self):
         path = filedialog.askopenfilename(title="Select Excel file", filetypes=[("Excel files", "*.xlsx")])

@@ -32,6 +32,7 @@ class App(tk.Tk):
         self.title("Inventory & Sales Manager Pro")
         self.geometry("1360x820")
         self.minsize(1180, 680)
+        self.configure(bg="#0b1220")
 
         self.fx = fx_service
         self.inventory = inventory_service
@@ -119,36 +120,84 @@ class App(tk.Tk):
         style = ttk.Style(self)
         style.theme_use("clam")
         
-        bg = "#f3f6fb"
+        bg = "#f4f7fb"
         panel = "#ffffff"
-        accent = "#1f6feb"
+        accent = "#2563eb"
+        accent_hover = "#1d4ed8"
+        text_primary = "#0f172a"
+        text_muted = "#64748b"
+        border = "#dbe3ef"
 
-        style.layout("Side.TNotebook.Tab", [])
-        style.configure("Side.TNotebook", tabmargins=0, background=bg)
+        style.configure(".", background=bg, foreground=text_primary, font=("Segoe UI", 10))
+
+        style.configure("Side.TNotebook", tabmargins=(0, 6, 0, 0), background=bg, borderwidth=0)
+        style.configure(
+            "Side.TNotebook.Tab",
+            padding=(18, 10),
+            font=("Segoe UI", 10, "bold"),
+            background="#e2e8f0",
+            foreground="#334155",
+            borderwidth=0,
+        )
+        style.map(
+            "Side.TNotebook.Tab",
+            background=[("selected", panel), ("active", "#dbeafe")],
+            foreground=[("selected", accent), ("active", accent)],
+        )
+
         style.configure("App.TFrame", background=bg)
-        style.configure("Card.TFrame", background=panel, relief="flat")
+        style.configure("Card.TFrame", background=panel, relief="flat", borderwidth=1)
         style.configure("TFrame", background=bg)
-        style.configure("TLabelframe", background=bg, borderwidth=1)
-        style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"))
+        style.configure("TLabelframe", background=bg, borderwidth=1, relief="solid", bordercolor=border)
+        style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"), foreground="#334155")
 
-        style.configure("TButton", padding=(12, 9), font=("Segoe UI", 10))
+        style.configure(
+            "Topbar.TFrame",
+            background="#0f172a",
+        )
+        style.configure("TopbarTitle.TLabel", background="#0f172a", foreground="#f8fafc", font=("Segoe UI", 13, "bold"))
+        style.configure("TopbarMeta.TLabel", background="#0f172a", foreground="#cbd5e1", font=("Segoe UI", 9))
+        style.configure("Status.TLabel", background=bg, foreground=text_muted)
+
+        style.configure("TButton", padding=(12, 9), font=("Segoe UI", 10), borderwidth=0)
         style.configure("Big.TButton", padding=(14, 10), font=("Segoe UI", 10, "bold"))
-        style.configure("Primary.TButton", padding=(14, 10), font=("Segoe UI", 10, "bold"), foreground="white", background=accent)
-        style.map("Primary.TButton", background=[("active", "#1459bd")])
 
-        style.configure("Title.TLabel", font=("Segoe UI", 12, "bold"))
-        style.configure("KPI.TLabel", font=("Segoe UI", 10), foreground="#57606a")
-        style.configure("KPIValue.TLabel", font=("Segoe UI", 11, "bold"), foreground="#1f4e79")
+        style.configure(
+            "Primary.TButton",
+            padding=(14, 10),
+            font=("Segoe UI", 10, "bold"),
+            foreground="white",
+            background=accent,
+            focusthickness=0,
+        )
+        style.map("Primary.TButton", background=[("active", accent_hover), ("pressed", accent_hover)])
+        style.configure("Ghost.TButton", background="#e2e8f0", foreground="#334155")
+        style.map("Ghost.TButton", background=[("active", "#cbd5e1")])
+
+        style.configure("Title.TLabel", font=("Segoe UI", 12, "bold"), foreground=text_primary)
+        style.configure("Subtitle.TLabel", font=("Segoe UI", 10), foreground=text_muted)
+        style.configure("KPI.TLabel", font=("Segoe UI", 10), foreground=text_muted)
+        style.configure("KPIValue.TLabel", font=("Segoe UI", 14, "bold"), foreground="#1e3a8a")
+
+        style.configure("Modern.Treeview", rowheight=30, background="#f8fafc", fieldbackground=panel, borderwidth=0)
+        style.configure("Modern.Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#e2e8f0", foreground="#0f172a")
+        style.map("Modern.Treeview", background=[("selected", "#dbeafe")], foreground=[("selected", "#0f172a")])
 
     def _build_topbar(self):
-        top = ttk.Frame(self, style="App.TFrame")
-        top.pack(fill="x", padx=16, pady=12)
+        top = ttk.Frame(self, style="Topbar.TFrame")
+        top.pack(fill="x", padx=16, pady=(12, 10))
 
-        ttk.Label(top, textvariable=self.fx_var, style="Title.TLabel").pack(side="left")
-        ttk.Button(top, text="Update FX", command=self.update_fx).pack(side="left", padx=10)
+        left = ttk.Frame(top, style="Topbar.TFrame")
+        left.pack(side="left", fill="x", expand=True, padx=14, pady=12)
+        ttk.Label(left, text="Inventory & Sales Manager", style="TopbarTitle.TLabel").pack(anchor="w")
+        ttk.Label(left, textvariable=self.fx_var, style="TopbarMeta.TLabel").pack(anchor="w", pady=(2, 0))
 
-        ttk.Label(top, text=f"Usuario: {self.current_user.username} ({self.current_user.role})").pack(side="right", padx=16)
-        ttk.Label(top, text=f"DB: {Path(self.db_path).name}").pack(side="right")
+        ttk.Button(top, text="Refresh FX", style="Primary.TButton", command=self.update_fx).pack(side="left", padx=10)
+
+        right = ttk.Frame(top, style="Topbar.TFrame")
+        right.pack(side="right", padx=14)
+        ttk.Label(right, text=f"User: {self.current_user.username} ({self.current_user.role})", style="TopbarMeta.TLabel").pack(anchor="e")
+        ttk.Label(right, text=f"Base: {Path(self.db_path).name}", style="TopbarMeta.TLabel").pack(anchor="e")
 
     def _build_sidebar(self):
         box = ttk.LabelFrame(self.sidebar, text="Quick Actions")
@@ -158,7 +207,7 @@ class App(tk.Tk):
         ttk.Button(box, text="🧾 New Sale", style="Big.TButton", command=lambda: self.nb.select(self.sales_view.frame)).pack(fill="x", padx=10, pady=6)
         ttk.Button(box, text="🔁 Restock", style="Big.TButton", command=lambda: self.nb.select(self.restock_view.frame)).pack(fill="x", padx=10, pady=6)
         ttk.Button(box, text="📊 Reports + Dashboard", style="Big.TButton", command=lambda: self.nb.select(self.reports_view.frame)).pack(fill="x", padx=10, pady=6)
-        ttk.Button(box, text="🔄 Refresh", style="Big.TButton", command=self.refresh_all).pack(fill="x", padx=10, pady=(6, 10))
+        ttk.Button(box, text="🔄 Refresh", style="Primary.TButton", command=self.refresh_all).pack(fill="x", padx=10, pady=(6, 10))
 
         if self.can("admin"):
             self._build_user_admin_panel()
@@ -181,7 +230,17 @@ class App(tk.Tk):
         lowbox = ttk.LabelFrame(self.sidebar, text="Low Stock (double click)")
         lowbox.pack(fill="both", expand=True, pady=(10, 0), padx=8)
 
-        self.low_list = tk.Listbox(lowbox, height=10, relief="flat", highlightthickness=1, highlightbackground="#d0d7de")
+        self.low_list = tk.Listbox(
+            lowbox,
+            height=10,
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground="#cbd5e1",
+            background="#f8fafc",
+            foreground="#0f172a",
+            selectbackground="#bfdbfe",
+            activestyle="none",
+        )
         self.low_list.pack(fill="both", expand=True, padx=8, pady=8)
         self.low_list.bind("<Double-1>", self.on_low_stock_open)
         self._low_items = []
@@ -208,9 +267,9 @@ class App(tk.Tk):
     def _build_status_bar(self):
         bar = ttk.Frame(self, style="App.TFrame")
         bar.pack(fill="x", padx=12, pady=(0, 10))
-        ttk.Label(bar, textvariable=self.status_var).pack(side="left")
-        ttk.Label(bar, text="Shortcut: Enter=main action | Ctrl+1..4 navegate").pack(side="left", padx=18)
-        ttk.Label(bar, text=f"Logs: {self.logs_dir}").pack(side="right")
+        ttk.Label(bar, textvariable=self.status_var, style="Status.TLabel").pack(side="left")
+        ttk.Label(bar, text="Shortcut: Enter=main action | Ctrl+1..4 navegate", style="Status.TLabel").pack(side="left", padx=18)
+        ttk.Label(bar, text=f"Logs: {self.logs_dir}", style="Status.TLabel").pack(side="right")
 
     def _bind_keyboard_shortcuts(self):
         self.bind("<Control-Key-1>", lambda _e: self.nb.select(self.products_view.frame))

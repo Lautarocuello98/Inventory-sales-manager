@@ -54,7 +54,7 @@ class SalesView:
         cart_box.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         cols = ("sku", "name", "qty", "unit", "line")
-        self.cart_tree = ttk.Treeview(cart_box, columns=cols, show="headings", height=16)
+        self.cart_tree = ttk.Treeview(cart_box, columns=cols, show="headings", height=16, style="Modern.Treeview")
         heads = {"sku": "SKU", "name": "Name", "qty": "Qty", "unit": "Unit USD", "line": "Line USD"}
         widths = {"sku": 120, "name": 420, "qty": 70, "unit": 110, "line": 110}
         for c in cols:
@@ -96,7 +96,7 @@ class SalesView:
         ttk.Button(top2, text="Refresh", command=self.refresh_history).pack(side="left", padx=10)
 
         cols = ("id", "dt", "usd", "fx", "ars", "notes")
-        self.sales_tree = ttk.Treeview(hist, columns=cols, show="headings", height=8)
+        self.sales_tree = ttk.Treeview(hist, columns=cols, show="headings", height=8, style="Modern.Treeview")
         heads = {"id": "Sale ID", "dt": "Datetime", "usd": "Total USD", "fx": "FX", "ars": "Total ARS", "notes": "Notes"}
         widths = {"id": 90, "dt": 200, "usd": 110, "fx": 90, "ars": 120, "notes": 520}
         for c in cols:
@@ -282,7 +282,7 @@ class SalesView:
         box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         cols = ("sku", "name", "qty", "unit", "line", "cost", "margin")
-        tree = ttk.Treeview(box, columns=cols, show="headings", height=16)
+        tree = ttk.Treeview(box, columns=cols, show="headings", height=16, style="Modern.Treeview")
         heads = {"sku": "SKU", "name": "Name", "qty": "Qty", "unit": "Unit USD", "line": "Line USD",
                  "cost": "Cost USD", "margin": "Line Profit USD"}
         widths = {"sku": 120, "name": 380, "qty": 70, "unit": 110, "line": 110, "cost": 110, "margin": 140}

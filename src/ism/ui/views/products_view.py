@@ -42,7 +42,7 @@ class ProductsView:
             entry.bind("<Return>", lambda _e: self.on_add_product())
 
         cols = ("id", "sku", "name", "cost", "price", "stock", "min")
-        self.tree = ttk.Treeview(right, columns=cols, show="headings", height=20)
+        self.tree = ttk.Treeview(right, columns=cols, show="headings", height=20, style="Modern.Treeview")
         heads = {
             "id": "ID", "sku": "SKU", "name": "Name",
             "cost": "Cost USD", "price": "Price USD",
