@@ -230,7 +230,7 @@ class SalesView:
         items = [{"product_id": it["product_id"], "qty": it["qty"], "unit_price_usd": it["unit_price_usd"]} for it in self.cart]
 
         try:
-            if not self.app.can("admin", "seller"):
+            if not self.app.can_action("create_sale"):
                 raise PermissionError("Tu rol no puede registrar ventas.")
             sale_id = self.app.sales.create_sale(notes, items, actor_user_id=self.app.current_user.id)
         except Exception as e:

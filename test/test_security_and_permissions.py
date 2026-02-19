@@ -78,7 +78,7 @@ def test_reports_import_denied_for_viewer_role():
     calls = []
 
     class App:
-        def can(self, *roles):
+        def can_action(self, _action):
             return False
 
         def handle_error(self, title, err, toast_text):
@@ -97,7 +97,7 @@ def test_reports_export_denied_for_unknown_role():
     calls = []
 
     class App:
-        def can(self, *roles):
+        def can_action(self, _action):
             return False
 
         def handle_error(self, title, err, toast_text):

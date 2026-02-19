@@ -246,6 +246,13 @@ ism
 
 ---
 
+
+### Security and Operations
+- Role-based permission matrix per action (admin/seller/viewer).
+- PIN hashing with PBKDF2-SHA256.
+- Login protection with temporary lockout after repeated failed attempts.
+- One-click local SQLite backup from the app sidebar.
+
 ## Key Design Goals
 
 - Clean separation of concerns

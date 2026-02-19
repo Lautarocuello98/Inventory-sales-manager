@@ -105,8 +105,8 @@ class ReportsView:
         canvas.create_line(*points, fill="#16a34a", width=3, smooth=True)
 
     def import_excel(self):
-        if not self.app.can("admin", "seller"):
-            self.app.handle_error("Import error", PermissionError("Tu rol no puede importar desde Excel."), "Excel import failed.")
+        if not self.app.can_action("import_excel"):
+            self.app.handle_error("Import error", PermissionError("Role can not import from Excel."), "Excel import failed.")
             return
         path = filedialog.askopenfilename(title="Select Excel file", filetypes=[("Excel files", "*.xlsx")])
         if not path:
@@ -119,8 +119,8 @@ class ReportsView:
             self.app.handle_error("Import error", e, "Excel import failed.")
 
     def export_report(self):
-        if not self.app.can("admin", "seller", "viewer"):
-            self.app.handle_error("Export error", PermissionError("Tu rol no puede exportar reportes."), "Excel export failed.")
+        if not self.app.can_action("export_report"):
+            self.app.handle_error("Export error", PermissionError("Role can not import/export reports."), "Excel export failed.")
             return
         today = datetime.now().replace(microsecond=0)
         start = today - timedelta(days=7 if self.period.get() == "weekly" else 30)

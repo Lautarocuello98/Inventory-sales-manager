@@ -27,7 +27,8 @@ def main() -> None:
         purchase_service=container.purchases,
         excel_service=container.excel,
         reporting_service=container.reporting,
-        auth_service=container.auth,     
+        auth_service=container.auth,
+        backup_service=container.backup,
         db_path=str(paths.db_path),
         logs_dir=str(paths.logs_dir),
     )

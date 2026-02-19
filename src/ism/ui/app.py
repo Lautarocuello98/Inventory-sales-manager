@@ -25,6 +25,7 @@ class App(tk.Tk):
         excel_service,
         reporting_service,
         auth_service,
+        backup_service,
         db_path: str,
         logs_dir: str,
     ):
@@ -41,6 +42,7 @@ class App(tk.Tk):
         self.excel = excel_service
         self.reporting = reporting_service
         self.auth = auth_service
+        self.backup = backup_service
         self.current_user = self._login_dialog()
 
         self.db_path = db_path
@@ -217,7 +219,8 @@ class App(tk.Tk):
             style="Subtitle.TLabel",
             wraplength=280,
         ).pack(anchor="w", pady=(3, 6))
-        ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
+        ttk.Button(header, text="🔄 Refrescar datos", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
+        ttk.Button(header, text="💾 Crear backup", style="Primary.TButton", command=self.create_backup).pack(fill="x", pady=(6, 0))
 
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
         kpi.pack(fill="x", padx=8)
@@ -413,6 +416,9 @@ class App(tk.Tk):
     def can(self, *roles: str) -> bool:
         return self.current_user.role in set(roles)
 
+    def can_action(self, action: str) -> bool:
+        return self.auth.can(self.current_user, action)
+
     def toast(self, msg: str, kind: str = "info", ms: int = 2500):
         prefix = {"info": "ℹ ", "success": "✅ ", "warn": "⚠ ", "error": "❌ "}.get(kind, "")
         self.status_var.set(prefix + msg)
@@ -422,6 +428,13 @@ class App(tk.Tk):
             except Exception:
                 pass
         self._toast_after_id = self.after(ms, lambda: self.status_var.set(""))
+
+    def create_backup(self):
+        try:
+            path = self.backup.create_backup()
+            self.toast(f"Backup creado: {path.name}", kind="success")
+        except Exception as e:
+            self.handle_error("Backup", e, "No se pudo crear el backup.")
 
     def update_fx(self, silent: bool = False):
         try:
