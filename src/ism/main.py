@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import logging
+import sys
+from pathlib import Path
+
+
+if __package__ in (None, ""):
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from ism.config import get_app_paths
 from ism.logging_config import setup_logging

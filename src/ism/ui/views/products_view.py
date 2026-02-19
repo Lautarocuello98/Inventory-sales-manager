@@ -40,9 +40,11 @@ class ProductsView:
  
         for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
             entry.bind("<Return>", lambda _e: self.on_add_product())
+        tree_wrap = ttk.Frame(right)
+        tree_wrap.pack(fill="both", expand=True, padx=10, pady=10)
 
         cols = ("id", "sku", "name", "cost", "price", "stock", "min")
-        self.tree = ttk.Treeview(right, columns=cols, show="headings", height=20, style="Modern.Treeview")
+        self.tree = ttk.Treeview(tree_wrap, columns=cols, show="headings", height=20, style="Modern.Treeview")
         heads = {
             "id": "ID", "sku": "SKU", "name": "Name",
             "cost": "Cost USD", "price": "Price USD",
@@ -54,9 +56,6 @@ class ProductsView:
             self.tree.column(c, width=widths[c], anchor="w")
 
         self.tree.tag_configure("low", background="#ffdddd")
-
-        tree_wrap = ttk.Frame(right)
-        tree_wrap.pack(fill="both", expand=True, padx=10, pady=10)
 
         vsb = ttk.Scrollbar(tree_wrap, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(tree_wrap, orient="horizontal", command=self.tree.xview)
