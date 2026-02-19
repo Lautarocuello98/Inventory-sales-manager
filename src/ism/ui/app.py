@@ -56,7 +56,7 @@ class App(tk.Tk):
         main = ttk.Frame(self, style="App.TFrame")
         main.pack(fill="both", expand=True, padx=12, pady=(0, 10))
 
-        self.sidebar = ttk.Frame(main, style="Card.TFrame", width=330)
+        self.sidebar = ttk.Frame(main, style="Card.TFrame", width=270)
         self.sidebar.pack(side="left", fill="y", padx=(0, 14))
         self.sidebar.pack_propagate(False)
 

@@ -108,7 +108,7 @@ class ProductsView:
             # Create with stock=0 first. If initial stock is provided,
             # it is applied as a purchase so inventory history remains consistent.
             if not self.app.can("admin"):
-                raise PermissionError("Solo admin puede crear productos.")
+                raise PermissionError("Only admin can create products.")
             pid = self.app.inventory.add_product(sku, name, cost, price, 0, min_stock)
 
             # If user set initial stock, log as an INITIAL purchase (so it appears in history)
@@ -133,11 +133,11 @@ class ProductsView:
     def on_delete_product(self):
         try:
             if not self.app.can("admin"):
-                raise PermissionError("Solo admin puede borrar productos.")
+                raise PermissionError("Only admin can delete products.")
 
             selected = self.tree.selection()
             if not selected:
-                raise ValueError("Selecciona un producto para borrar.")
+                raise ValueError("Select a product.")
 
             values = self.tree.item(selected[0], "values")
             product_id = int(values[0])
