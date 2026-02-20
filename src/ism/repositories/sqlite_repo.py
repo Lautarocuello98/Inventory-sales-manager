@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import hashlib
 import hmac
-import os   
+import os
 import secrets
 import shutil
 from datetime import datetime
@@ -208,20 +208,34 @@ class SqliteRepository:
     def _ensure_bootstrap_admin(self) -> None:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users WHERE active=1")
-        active_users = int(cur.fetchone()[0])
-        if active_users > 0:
+        cur.execute("SELECT id, active FROM users WHERE username='admin' LIMIT 1")
+        row = cur.fetchone()
+
+        if row is not None and int(row[1]) == 1:
             conn.close()
             return
 
         bootstrap_pin = os.environ.get("ISM_BOOTSTRAP_ADMIN_PIN", "").strip() or secrets.token_urlsafe(12)
-        cur.execute(
-            """
-            INSERT INTO users (username, pin, role, active, must_change_pin)
-            VALUES ('admin', ?, 'admin', 1, 1)
-            """,
-            (self._hash_pin(bootstrap_pin),),
-        )
+        bootstrap_hash = self._hash_pin(bootstrap_pin)
+
+        if row is None:
+            cur.execute(
+                """
+                INSERT INTO users (username, pin, role, active, must_change_pin)
+                VALUES ('admin', ?, 'admin', 1, 1)
+                """,
+                (bootstrap_hash,),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE users
+                SET pin=?, role='admin', active=1, must_change_pin=1, failed_attempts=0, locked_until=NULL
+                WHERE id=?
+                """,
+                (bootstrap_hash, int(row[0])),
+            )
+
         conn.commit()
         conn.close()
 

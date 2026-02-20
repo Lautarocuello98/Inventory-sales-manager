@@ -204,3 +204,60 @@ def test_bootstrap_admin_pin_is_written_to_restricted_file(tmp_path: Path):
     pin_file = tmp_path / ".admin_bootstrap_pin"
     assert pin_file.exists()
     assert pin_file.read_text(encoding="utf-8").strip()
+
+def test_bootstrap_admin_is_recreated_if_missing_even_with_other_users(tmp_path: Path):
+    db = tmp_path / "bootstrap_missing_admin.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE username='admin'")
+    cur.execute(
+        """
+        INSERT INTO users (username, pin, role, active, must_change_pin)
+        VALUES ('seller1', ?, 'seller', 1, 0)
+        """,
+        (SqliteRepository._hash_pin("Seller123"),),
+    )
+    conn.commit()
+    conn.close()
+
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("SELECT active, must_change_pin, pin FROM users WHERE username='admin'")
+    row = cur.fetchone()
+    conn.close()
+
+    assert row is not None
+    assert int(row[0]) == 1
+    assert int(row[1]) == 1
+    assert str(row[2]).startswith("pbkdf2_sha256$")
+
+
+def test_bootstrap_admin_is_reactivated_with_new_provisional_pin(tmp_path: Path):
+    db = tmp_path / "bootstrap_inactive_admin.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET active=0, must_change_pin=0 WHERE username='admin'")
+    conn.commit()
+    conn.close()
+
+    pin_file = tmp_path / ".admin_bootstrap_pin"
+    before = pin_file.read_text(encoding="utf-8").strip()
+
+    repo.init_db()
+
+    after = pin_file.read_text(encoding="utf-8").strip()
+    assert after
+    assert after != before
+
+    auth = AuthService(repo)
+    admin = auth.login("admin", after)
+    assert admin.username == "admin"
+    assert int(admin.must_change_pin) == 1

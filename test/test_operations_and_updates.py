@@ -63,8 +63,23 @@ def test_update_service_reads_local_manifest(tmp_path: Path):
     assert info is not None
     assert info.latest_version == "1.2.0"
 
+
+def test_update_service_supports_prefixed_and_partial_versions(tmp_path: Path):
+    manifest = tmp_path / "latest.json"
+    manifest.write_text(
+        '{"version":"v1.1","download_url":"https://example.com/dl","notes":"Minor"}',
+        encoding="utf-8",
+    )
+
+    svc = UpdateService(current_version="1.0.9", source=manifest)
+    info = svc.check_for_update()
+
+    assert info is not None
+    assert info.latest_version == "v1.1"
+
+
 def test_container_uses_pyproject_version_for_updates(tmp_path: Path):
     db = tmp_path / "version.db"
     container = build_container(db)
 
-    assert container.updates.current_version == "1.1.1"
+    assert container.updates.current_version == "1.1.2"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,8 +29,11 @@ class UpdateService:
 
     @staticmethod
     def _to_tuple(v: str) -> tuple[int, int, int]:
-        parts = v.split(".")
-        nums = [int(p) for p in parts[:3]]
+        cleaned = v.strip().lower()
+        if cleaned.startswith("v"):
+            cleaned = cleaned[1:]
+
+        nums = [int(n) for n in re.findall(r"\d+", cleaned)[:3]]
         while len(nums) < 3:
             nums.append(0)
         return tuple(nums)
