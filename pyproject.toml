@@ -1,12 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inventory-sales-manager"
-version = "1.0.0"
+version = "1.1.0"
 description = "Inventory & Sales Manager (USD + ARS) with SQLite, Tkinter, Excel reports, FX rate"
+readme = "README.md"
 requires-python = ">=3.10"
+authors = [
+  { name = "Lautaro Cuello", email = "support@example.com" }
+]
+maintainers = [
+  { name = "ISM Support", email = "support@example.com" }
+]
+keywords = ["inventory", "sales", "desktop", "sqlite", "tkinter"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Office/Business :: Financial",
+]
 dependencies = [
   "requests>=2.31.0",
   "openpyxl>=3.1.2",
 ]
+
+[project.url]
+github = https://github.com/Lautarocuello98/Inventory-sales-manager
 
 [project.scripts]
 ism = "ism.main:main"

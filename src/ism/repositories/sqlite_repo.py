@@ -655,6 +655,14 @@ class SqliteRepository:
         return [LedgerEntry(*r) for r in rows]
 
     # ---------- FX ----------
+    def integrity_check(self) -> str:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("PRAGMA integrity_check")
+        row = cur.fetchone()
+        conn.close()
+        return str(row[0]) if row else "unknown"
+
     def get_fx_rate(self, date_iso: str) -> Optional[float]:
         conn = self._conn()
         cur = conn.cursor()

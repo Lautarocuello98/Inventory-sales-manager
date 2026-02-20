@@ -5,6 +5,8 @@ from .purchase_service import PurchaseService
 from .excel_service import ExcelService
 from .reporting_service import ReportingService
 from .backup_service import BackupService
+from .operations_service import OperationsService
+from .update_service import UpdateService
 
 __all__ = [
     "FxService",
@@ -14,4 +16,6 @@ __all__ = [
     "ExcelService",
     "ReportingService",
     "BackupService",
+    "OperationsService",
+    "UpdateService",
 ]

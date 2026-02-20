@@ -285,3 +285,21 @@ Python Developer
 ## License
 
 MIT (see `LICENSE`).
+
+---
+
+## Commercial Readiness
+
+This repository now includes:
+
+- Repeatable release process and scripts in `scripts/` plus release manifest in `release/latest.json`.
+- In-app update check against `release/latest.json` endpoint or local manifest.
+- Operations docs for support SLA and incident response in `docs/operations/`.
+- QA final checklist in `docs/qa/QA_FINAL_CHECKLIST.md`.
+- Reliability utilities in UI: health check, diagnostics export, and latest-backup restore.
+
+See:
+- `docs/release/RELEASE_PROCESS.md`
+- `docs/operations/SUPPORT_SLA_AND_INCIDENTS.md`
+- `docs/operations/COMMERCIAL_TERMS.md`
+- `docs/qa/QA_FINAL_CHECKLIST.md`

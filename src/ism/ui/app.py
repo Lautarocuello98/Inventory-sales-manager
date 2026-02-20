@@ -26,6 +26,8 @@ class App(tk.Tk):
         reporting_service,
         auth_service,
         backup_service,
+        operations_service,
+        update_service,
         db_path: str,
         logs_dir: str,
     ):
@@ -43,6 +45,8 @@ class App(tk.Tk):
         self.reporting = reporting_service
         self.auth = auth_service
         self.backup = backup_service
+        self.operations = operations_service
+        self.updates = update_service
         self.current_user = self._login_dialog()
 
         self.db_path = db_path
@@ -236,6 +240,7 @@ class App(tk.Tk):
         ttk.Label(left, textvariable=self.fx_var, style="TopbarMeta.TLabel").pack(anchor="w", pady=(2, 0))
 
         ttk.Button(top, text="Refresh FX", style="Primary.TButton", command=self.update_fx).pack(side="left", padx=8, pady=6)
+        ttk.Button(top, text="Check updates", style="Ghost.TButton", command=self.check_updates).pack(side="left", padx=4, pady=6)
 
         right = ttk.Frame(top, style="Topbar.TFrame")
         right.pack(side="right", padx=12, pady=6)
@@ -254,6 +259,9 @@ class App(tk.Tk):
         ).pack(anchor="w", pady=(3, 6))
         ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
         ttk.Button(header, text="💾 Create backup", style="Primary.TButton", command=self.create_backup).pack(fill="x", pady=(6, 0))
+        ttk.Button(header, text="🧪 Health check", style="Ghost.TButton", command=self.run_health_check).pack(fill="x", pady=(6, 0))
+        ttk.Button(header, text="📦 Export diagnostics", style="Ghost.TButton", command=self.export_diagnostics).pack(fill="x", pady=(6, 0))
+        ttk.Button(header, text="🛟 Restore latest backup", style="Ghost.TButton", command=self.restore_latest_backup).pack(fill="x", pady=(6, 0))
 
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
         kpi.pack(fill="x", padx=8)
@@ -461,6 +469,45 @@ class App(tk.Tk):
             except Exception:
                 pass
         self._toast_after_id = self.after(ms, lambda: self.status_var.set(""))
+    
+    
+    def run_health_check(self):
+        try:
+            rep = self.operations.run_health_check()
+            msg = f"Integrity: {rep.sqlite_integrity} | DB: {rep.db_size_bytes} bytes | logs: {rep.logs_count}"
+            messagebox.showinfo("Health check", msg)
+            self.toast("Health check OK.", kind="success")
+        except Exception as e:
+            self.handle_error("Health check", e, "Health check failed.")
+
+    def export_diagnostics(self):
+        try:
+            path = self.operations.export_diagnostics()
+            self.toast(f"Diagnostics exported: {path.name}", kind="success")
+        except Exception as e:
+            self.handle_error("Diagnostics", e, "Could not export diagnostics.")
+
+    def restore_latest_backup(self):
+        if not messagebox.askyesno("Restore backup", "This will replace current DB with latest backup. Continue?"):
+            return
+        try:
+            self.operations.restore_latest_backup(self.backup)
+            self.refresh_all(silent_fx=True, show_toast=False)
+            self.toast("Latest backup restored.", kind="warn", ms=3000)
+        except Exception as e:
+            self.handle_error("Restore backup", e, "Could not restore latest backup.")
+
+    def check_updates(self):
+        try:
+            info = self.updates.check_for_update()
+            if info is None:
+                self.toast("No updates available.", kind="info")
+                return
+            msg = f"New version: {info.latest_version}\n\n{info.notes}\n\nDownload: {info.download_url}"
+            messagebox.showinfo("Update available", msg)
+            self.toast(f"Update available: {info.latest_version}", kind="warn")
+        except Exception as e:
+            self.handle_error("Updates", e, "Could not check updates.")
 
     def create_backup(self):
         try:
