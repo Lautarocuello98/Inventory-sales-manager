@@ -6,9 +6,7 @@ This project implements a clean layered architecture with proper separation of c
 
 ---
 
-## Video demo
 
-![Start](media/inventory-sales-manager.mp4)
 
 ---
 
