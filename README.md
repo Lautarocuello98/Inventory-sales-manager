@@ -6,9 +6,10 @@ This project implements a clean layered architecture with proper separation of c
 
 ---
 
-## Img
+## Screenshot
 
 ![Start](screenshot/screenshot.png)
+
 ---
 
 ## Overview
@@ -24,6 +25,27 @@ Inventory & Sales Manager (ISM) is a desktop system that allows small businesses
 - Monitor KPIs and profit performance
 
 The system guarantees full traceability of stock movements and financial calculations.
+
+---
+
+## Quick Start (5 minutes)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m ism.main
+```
+
+On Windows (PowerShell), use:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m ism.main
+```
 
 ---
 
@@ -285,6 +307,17 @@ Python Developer
 ## License
 
 MIT (see `LICENSE`).
+
+---
+
+## Quality Checks
+
+Run locally before sharing or releasing:
+
+```bash
+pytest -q
+ruff check .
+```
 
 ---
 

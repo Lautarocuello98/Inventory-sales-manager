@@ -120,7 +120,7 @@ class ReportsView:
 
     def export_report(self):
         if not self.app.can_action("export_report"):
-            self.app.handle_error("Export error", PermissionError("Role can not import/export reports."), "Excel export failed.")
+            self.app.handle_error("Export error", PermissionError("Role can not export reports."), "Excel export failed.")
             return
         today = datetime.now().replace(microsecond=0)
         start = today - timedelta(days=7 if self.period.get() == "weekly" else 30)

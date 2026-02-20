@@ -112,7 +112,7 @@ def test_reports_export_denied_for_unknown_role():
     view.export_report()
 
     assert calls and calls[0][0] == "Export error"
-    assert "can not import" in calls[0][1]
+    assert "can not export" in calls[0][1]
 
 def test_admin_cannot_create_user_with_weak_pin(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "weak_pin.db")
@@ -218,7 +218,11 @@ def test_bootstrap_admin_pin_is_written_to_restricted_file(tmp_path: Path):
     db = tmp_path / "bootstrap.db"
     repo = SqliteRepository(db)
     repo.init_db()
-    
+
+    pin_file = tmp_path / ".admin_bootstrap_pin"
+    assert pin_file.exists()
+    assert pin_file.read_text(encoding="utf-8").strip()
+
 def test_admin_can_update_product_price_and_min_stock(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "update_product.db")
     repo.init_db()
@@ -244,10 +248,6 @@ def test_cannot_update_product_with_invalid_values(tmp_path: Path):
 
     with pytest.raises(ValidationError, match="Min stock must be >= 0"):
         inv.update_product(pid, 3, -1)
-
-    pin_file = tmp_path / ".admin_bootstrap_pin"
-    assert pin_file.exists()
-    assert pin_file.read_text(encoding="utf-8").strip()
 
 def test_bootstrap_admin_is_recreated_if_missing_even_with_other_users(tmp_path: Path):
     db = tmp_path / "bootstrap_missing_admin.db"
