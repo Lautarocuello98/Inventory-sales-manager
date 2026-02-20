@@ -8,7 +8,7 @@ This project implements a clean layered architecture with proper separation of c
 
 ## Screenshot
 
-![Start](screenshot/screenshot.jpeg)
+![Start](screenshot/screenshot.png)
 ---
 
 ## Overview
@@ -303,3 +303,27 @@ See:
 - `docs/operations/SUPPORT_SLA_AND_INCIDENTS.md`
 - `docs/operations/COMMERCIAL_TERMS.md`
 - `docs/qa/QA_FINAL_CHECKLIST.md`
+
+---
+
+## Portfolio Positioning (for client acquisition)
+
+Use this project as a **business solution case study**, not only as a code sample.
+
+Suggested pitch:
+
+- Problem: manual stock control, no margin visibility, and error-prone sales records.
+- Solution: desktop app with traceable inventory/sales/purchases, role-based access, backup/restore, and professional reports.
+- Outcome: fewer stock mistakes, faster decision-making, and clearer profitability tracking.
+
+Recommended portfolio assets:
+
+1. 60-90s demo video (login -> create product -> sale -> report export).
+2. 3 screenshots: dashboard, sale workflow, generated report.
+3. 1-page case brief with target user, key features, and implementation timeline.
+
+Quick credibility checklist before sharing with prospects:
+
+- Keep tests green (`pytest -q`) and lint clean (`ruff check .`).
+- Replace placeholder support/contact emails in packaging metadata.
+- Include installer/signing status and support SLA in your proposal.
