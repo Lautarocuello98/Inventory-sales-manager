@@ -6,7 +6,7 @@ This project implements a clean layered architecture with proper separation of c
 
 ---
 
-## Screenshot
+## Img
 
 ![Start](screenshot/screenshot.png)
 ---
