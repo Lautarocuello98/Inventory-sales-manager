@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.url]
-github = https://github.com/Lautarocuello98/Inventory-sales-manager
+github = "https://github.com/Lautarocuello98/Inventory-sales-manager"
 
 [project.scripts]
 ism = "ism.main:main"
