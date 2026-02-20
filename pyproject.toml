@@ -9,10 +9,10 @@ description = "Inventory & Sales Manager (USD + ARS) with SQLite, Tkinter, Excel
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "Lautaro Cuello", email = "support@example.com" }
+  { name = "Lautaro Cuello", email = "lac1998123@gmail.com" }
 ]
 maintainers = [
-  { name = "ISM Support", email = "support@example.com" }
+  { name = "ISM Support", email = "lac1998123@gmail.com" }
 ]
 keywords = ["inventory", "sales", "desktop", "sqlite", "tkinter"]
 classifiers = [

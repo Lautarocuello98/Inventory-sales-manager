@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from ism.repositories.sqlite_repo import SqliteRepository
@@ -30,6 +31,17 @@ class AppContainer:
     operations: OperationsService
     updates: UpdateService
 
+def _get_current_version() -> str:
+    try:
+        return version("inventory-sales-manager")
+    except PackageNotFoundError:
+        pyproject = Path(__file__).resolve().parents[3] / "pyproject.toml"
+        if pyproject.exists():
+            for line in pyproject.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("version") and "=" in line:
+                    return line.split("=", 1)[1].strip().strip('"')
+        return "0.0.0"
+
 
 def build_container(db_path: Path | str) -> AppContainer:
     repo = SqliteRepository(db_path)
@@ -45,7 +57,7 @@ def build_container(db_path: Path | str) -> AppContainer:
     backup_dir = Path(db_path).parent / "backups"
     backup = BackupService(db_path, backup_dir)
     operations = OperationsService(repo, db_path=db_path, logs_dir=Path(db_path).parent / "logs", backup_dir=backup_dir)
-    updates = UpdateService(current_version="1.1.0", source=Path(__file__).resolve().parents[3] / "release" / "latest.json")
+    updates = UpdateService(current_version=_get_current_version(), source=Path(__file__).resolve().parents[3] / "release" / "latest.json")
 
     return AppContainer(
         repo=repo,

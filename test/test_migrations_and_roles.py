@@ -63,3 +63,33 @@ def test_non_admin_cannot_create_user(tmp_path: Path):
 
     with pytest.raises(AuthorizationError):
         auth.create_user(seller, "x", "Viewer123", "viewer")
+
+def test_migration_failure_restores_db(tmp_path: Path):
+    class BrokenMigrationRepo(SqliteRepository):
+        def _migration_v3_auth_hardening(self, cur):
+            raise RuntimeError("forced migration failure")
+
+    db = tmp_path / "broken.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM schema_migrations WHERE version = 3")
+    conn.commit()
+    cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+    before = int(cur.fetchone()[0])
+    conn.close()
+
+    broken = BrokenMigrationRepo(db)
+
+    with pytest.raises(RuntimeError, match="Original database restored"):
+        broken.run_migrations()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+    after = int(cur.fetchone()[0])
+    conn.close()
+
+    assert after == before

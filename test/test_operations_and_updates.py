@@ -5,6 +5,7 @@ from ism.services.backup_service import BackupService
 from ism.services.inventory_service import InventoryService
 from ism.services.operations_service import OperationsService
 from ism.services.update_service import UpdateService
+from ism.application.container import build_container
 
 
 def test_operations_health_check_and_diagnostics_export(tmp_path: Path):
@@ -61,3 +62,9 @@ def test_update_service_reads_local_manifest(tmp_path: Path):
 
     assert info is not None
     assert info.latest_version == "1.2.0"
+
+def test_container_uses_pyproject_version_for_updates(tmp_path: Path):
+    db = tmp_path / "version.db"
+    container = build_container(db)
+
+    assert container.updates.current_version == "1.1.1"

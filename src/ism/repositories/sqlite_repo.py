@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import os   
 import secrets
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -26,27 +28,50 @@ class SqliteRepository:
 
     def run_migrations(self) -> None:
         conn = self._conn()
-        cur = conn.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
-        cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
-        current_version = int(cur.fetchone()[0])
+        backup_path = self._create_pre_migration_backup()
+        try:
+            cur = conn.cursor()
+            cur.execute("BEGIN")
+            cur.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
+            cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+            current_version = int(cur.fetchone()[0])
 
-        migrations = [
-            (1, self._migration_v1_base),
-            (2, self._migration_v2_constraints_and_ledger),
-            (3, self._migration_v3_auth_hardening),
-        ]
+            migrations = [
+                (1, self._migration_v1_base),
+                (2, self._migration_v2_constraints_and_ledger),
+                (3, self._migration_v3_auth_hardening),
+            ]
 
-        for version, migration in migrations:
-            if version <= current_version:
-                continue
-            migration(cur)
-            cur.execute(
-                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
-                (version,),
-            )
-        conn.commit()
-        conn.close()
+            for version, migration in migrations:
+                if version <= current_version:
+                    continue
+                migration(cur)
+                cur.execute(
+                    "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+                    (version,),
+                )
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            self._restore_pre_migration_backup(backup_path)
+            raise RuntimeError(
+                "Database migration failed. Original database restored from automatic backup."
+            ) from exc
+        finally:
+            conn.close()
+
+    def _create_pre_migration_backup(self) -> Path | None:
+        db_file = Path(self.db_path)
+        if not db_file.exists() or db_file.stat().st_size == 0:
+            return None
+        backup_file = db_file.with_name(f"{db_file.stem}.pre_migration_{datetime.now().strftime('%Y%m%d%H%M%S')}.bak")
+        shutil.copy2(db_file, backup_file)
+        return backup_file
+
+    def _restore_pre_migration_backup(self, backup_path: Path | None) -> None:
+        if backup_path is None or not backup_path.exists():
+            return
+        shutil.copy2(backup_path, self.db_path)
 
     def _migration_v1_base(self, cur: sqlite3.Cursor) -> None:
         cur.execute(
@@ -158,8 +183,8 @@ class SqliteRepository:
             """
         )
 
-        cur.execute("ALTER TABLE sales ADD COLUMN actor_user_id INTEGER REFERENCES users(id)")
-        cur.execute("ALTER TABLE purchases ADD COLUMN actor_user_id INTEGER REFERENCES users(id)")
+        self._add_column_if_missing(cur, "sales", "actor_user_id", "INTEGER REFERENCES users(id)")
+        self._add_column_if_missing(cur, "purchases", "actor_user_id", "INTEGER REFERENCES users(id)")
 
         self._rebuild_products_with_constraints(cur)
         self._rebuild_sale_items_with_constraints(cur)
