@@ -186,20 +186,64 @@ def test_admin_can_delete_product_with_zero_stock(tmp_path: Path):
     assert repo.get_product_by_id(pid) is None
 
 
-def test_cannot_delete_product_with_stock(tmp_path: Path):
-    repo = SqliteRepository(tmp_path / "delete_fail.db")
+def test_admin_can_delete_product_with_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "delete_with_stock.db")
     repo.init_db()
     inv = InventoryService(repo)
 
-    pid = inv.add_product("SKU-DEL-2", "Cannot delete", 1.0, 2.0, 3, 0)
+    pid = inv.add_product("SKU-DEL-2", "Delete with stock", 1.0, 2.0, 3, 0)
+    inv.delete_product(pid)
 
-    with pytest.raises(ValidationError, match="stock > 0"):
+    assert repo.get_product_by_id(pid) is None
+
+def test_cannot_delete_product_with_historical_movements(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "delete_history.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-DEL-3", "Has history", 1.0, 2.0, 0, 0)
+    repo.create_purchase_with_items(
+        datetime_iso="2025-01-01T10:00:00",
+        vendor="test",
+        total_usd=5.0,
+        notes="seed movement",
+        items=[{"product_id": pid, "qty": 5, "unit_cost_usd": 1.0}],
+        actor_user_id=None,
+    )
+
+    with pytest.raises(ValidationError, match="historical movements"):
         inv.delete_product(pid)
 
 def test_bootstrap_admin_pin_is_written_to_restricted_file(tmp_path: Path):
     db = tmp_path / "bootstrap.db"
     repo = SqliteRepository(db)
     repo.init_db()
+    
+def test_admin_can_update_product_price_and_min_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "update_product.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-UPD-1", "Update me", 3.0, 5.0, 2, 1)
+    inv.update_product(pid, 8.5, 4)
+
+    updated = repo.get_product_by_id(pid)
+    assert updated is not None
+    assert updated.price_usd == pytest.approx(8.5)
+    assert updated.min_stock == 4
+
+def test_cannot_update_product_with_invalid_values(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "update_product_invalid.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-UPD-2", "Invalid update", 3.0, 5.0, 2, 1)
+
+    with pytest.raises(ValidationError, match="Price must be > 0"):
+        inv.update_product(pid, 0, 1)
+
+    with pytest.raises(ValidationError, match="Min stock must be >= 0"):
+        inv.update_product(pid, 3, -1)
 
     pin_file = tmp_path / ".admin_bootstrap_pin"
     assert pin_file.exists()

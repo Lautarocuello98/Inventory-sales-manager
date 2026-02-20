@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk, messagebox
 import logging
+import tkinter as tk
+from tkinter import messagebox, ttk
 
 
 log = logging.getLogger(__name__)
@@ -14,17 +14,24 @@ class ProductsView:
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="Products")
 
-        tab = self.frame
         style = ttk.Style(self.frame)
         style.configure("ProductsCompact.Treeview", rowheight=24, font=("Segoe UI", 9))
         style.configure("ProductsCompact.Treeview.Heading", font=("Segoe UI", 9, "bold"))
 
-        left = ttk.LabelFrame(tab, text="Add product", width=255)
-        left.pack(side="left", fill="y", padx=(0, 6), pady=8)
-        left.pack_propagate(False)
+        sub_tabs = ttk.Notebook(self.frame)
+        sub_tabs.pack(fill="both", expand=True, padx=6, pady=8)
 
-        right = ttk.LabelFrame(tab, text="Products list")
-        right.pack(side="right", fill="both", expand=True, pady=8)
+        add_tab = ttk.Frame(sub_tabs)
+        manage_tab = ttk.Frame(sub_tabs)
+        sub_tabs.add(add_tab, text="Add")
+        sub_tabs.add(manage_tab, text="Edit / Delete")
+
+        self._build_add_tab(add_tab)
+        self._build_manage_tab(manage_tab)
+
+    def _build_add_tab(self, tab: ttk.Frame) -> None:
+        left = ttk.LabelFrame(tab, text="Add product")
+        left.pack(fill="y", padx=8, pady=8, anchor="nw")
 
         self.p_sku = self._entry(left, "SKU", 0)
         self.p_name = self._entry(left, "Name", 1)
@@ -37,19 +44,21 @@ class ProductsView:
         btns.grid(row=6, column=0, columnspan=2, sticky="ew", padx=8, pady=(6, 8))
         btns.columnconfigure(0, weight=1)
         btns.columnconfigure(1, weight=1)
-        btns.columnconfigure(2, weight=1)
-
-        ttk.Button(btns, text="Add", command=self.on_add_product)            .grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ttk.Button(btns, text="Delete", command=self.on_delete_product)            .grid(row=0, column=1, sticky="ew", padx=6)
-        ttk.Button(btns, text="Clear", command=self.clear_form)            .grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ttk.Button(btns, text="Add", command=self.on_add_product).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ttk.Button(btns, text="Clear", command=self.clear_form).grid(row=0, column=1, sticky="ew", padx=(6, 0))
         
         for entry in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
             entry.bind("<Return>", self._on_enter_add_product)
+
+    def _build_manage_tab(self, tab: ttk.Frame) -> None:
+        right = ttk.LabelFrame(tab, text="Products list")
+        right.pack(fill="both", expand=True, padx=8, pady=8)
+
         tree_wrap = ttk.Frame(right)
         tree_wrap.pack(fill="both", expand=True, padx=6, pady=6)
 
         cols = ("id", "sku", "name", "cost", "price", "stock", "min")
-        self.tree = ttk.Treeview(tree_wrap, columns=cols, show="headings", height=20, style="ProductsCompact.Treeview")
+        self.tree = ttk.Treeview(tree_wrap, columns=cols, show="headings", height=18, style="ProductsCompact.Treeview")
         heads = {
             "id": "ID", "sku": "SKU", "name": "Name",
             "cost": "Cost USD", "price": "Price USD",
@@ -68,13 +77,23 @@ class ProductsView:
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
-
         tree_wrap.columnconfigure(0, weight=1)
         tree_wrap.rowconfigure(0, weight=1)
 
-        # IMPORTANT:
-        # Do NOT call refresh() here.
-        # App will call refresh_all() after all views are created.
+        edit_box = ttk.LabelFrame(right, text="Edit selected product")
+        edit_box.pack(fill="x", padx=6, pady=(0, 6))
+        ttk.Label(edit_box, text="Price USD").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
+        ttk.Label(edit_box, text="Min stock").grid(row=0, column=1, sticky="w", padx=8, pady=(8, 4))
+        self.edit_price = ttk.Entry(edit_box, width=14)
+        self.edit_price.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
+        self.edit_min = ttk.Entry(edit_box, width=14)
+        self.edit_min.grid(row=1, column=1, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Save changes", command=self.on_update_product).grid(row=1, column=2, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Delete permanently", command=self.on_delete_product).grid(row=1, column=3, sticky="ew", padx=8, pady=(0, 8))
+        edit_box.columnconfigure(0, weight=1)
+        edit_box.columnconfigure(1, weight=1)
+
+        self.tree.bind("<<TreeviewSelect>>", self._load_selected_product_for_edit)
 
     def _entry(self, parent, label, row):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=8, pady=4)
@@ -104,6 +123,18 @@ class ProductsView:
     def _on_enter_add_product(self, _event=None):
         self.on_add_product()
         return "break"
+    
+    def _load_selected_product_for_edit(self, _event=None):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        values = self.tree.item(selected[0], "values")
+        if len(values) < 7:
+            return
+        self.edit_price.delete(0, tk.END)
+        self.edit_price.insert(0, str(values[4]))
+        self.edit_min.delete(0, tk.END)
+        self.edit_min.insert(0, str(values[6]))
 
     def on_add_product(self):
         try:
@@ -114,13 +145,10 @@ class ProductsView:
             stock = self._parse_int(self.p_stock.get(), "Stock", 0)
             min_stock = self._parse_int(self.p_min.get(), "Min stock", 0)
 
-            # Create with stock=0 first. If initial stock is provided,
-            # it is applied as a purchase so inventory history remains consistent.
             if not self.app.can_action("create_product"):
                 raise PermissionError("Only admin can create products.")
             pid = self.app.inventory.add_product(sku, name, cost, price, 0, min_stock)
 
-            # If user set initial stock, log as an INITIAL purchase (so it appears in history)
             if stock > 0:
                 prod = self.app.inventory.get_product_by_sku(sku)
                 self.app.purchases.create_purchase(
@@ -132,13 +160,31 @@ class ProductsView:
 
             self.app.toast(f"Product added (ID {pid}).", kind="success")
             self.clear_form()
-
-            # Now do a coordinated refresh (safe: all views already exist at runtime)
             self.app.refresh_all(silent_fx=True)
-
         except Exception as e:
             self.app.handle_error("Error", e, "Failed to add product.")
-            
+
+    def on_update_product(self):
+        try:
+            if not self.app.can_action("edit_product"):
+                raise PermissionError("Only admin can edit products.")
+
+            selected = self.tree.selection()
+            if not selected:
+                raise ValueError("Select a product.")
+
+            values = self.tree.item(selected[0], "values")
+            product_id = int(values[0])
+            price = self._parse_float(self.edit_price.get(), "Price USD")
+            min_stock = self._parse_int(self.edit_min.get(), "Min stock")
+
+            self.app.inventory.update_product(product_id, price, min_stock)
+            self.app.toast("Product updated.", kind="success")
+            self.app.refresh_all(silent_fx=True)
+            self.select_product_in_tree(values[1])
+        except Exception as e:
+            self.app.handle_error("Edit product", e, "Failed to update product.")
+     
     def on_delete_product(self):
         try:
             if not self.app.can_action("delete_product"):
@@ -154,14 +200,17 @@ class ProductsView:
 
             confirmed = messagebox.askyesno(
                 "Confirm delete",
-                f"Delete product '{product_name}' (ID {product_id})?\n\nOnly products with stock 0 can be deleted.",
+                (
+                    f"Delete product '{product_name}' (ID {product_id}) permanently?\n\n"
+                    "This action removes it completely from products."
+                ),
                 parent=self.frame,
             )
             if not confirmed:
                 return
 
             self.app.inventory.delete_product(product_id)
-            self.app.toast("Product deleted.", kind="success")
+            self.app.toast("Product deleted permanently.", kind="success")
             self.app.refresh_all(silent_fx=True)
         except Exception as e:
             self.app.handle_error("Delete product", e, "Failed to delete product.")
@@ -172,7 +221,6 @@ class ProductsView:
         self.p_sku.focus_set()
 
     def refresh(self):
-        # Refresh tree itself
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -182,10 +230,9 @@ class ProductsView:
             self.tree.insert(
                 "", "end",
                 values=(p.id, p.sku, p.name, f"{p.cost_usd:.2f}", f"{p.price_usd:.2f}", p.stock, p.min_stock),
-                tags=(tag,) if tag else ()
+                tags=(tag,) if tag else (),
             )
 
-        # Update dropdown choices used in other views (only if they exist)
         if hasattr(self.app, "sales_view"):
             self.app.sales_view.refresh_product_choices()
         if hasattr(self.app, "restock_view"):

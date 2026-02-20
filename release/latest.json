@@ -1,5 +1,5 @@
 {
-  "version": "1.1.2",
+  "version": "1.1.3",
   "download_url": "https://github.com/Lautarocuello98/Inventory-sales-manager/releases",
-  "notes": "Final stabilization release: robust version parsing for updates, maintenance fixes, and test hardening"
+  "notes": "Patch 1.1.3: admin product management improvements (edit price/min stock and delete support)"
 }

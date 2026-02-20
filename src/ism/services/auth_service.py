@@ -25,6 +25,7 @@ def _validate_secret_strength(secret: str, *, min_len: int) -> None:
 PERMISSIONS: dict[str, set[str]] = {
     "create_product": {"admin"},
     "delete_product": {"admin"},
+    "edit_product": {"admin"},
     "create_sale": {"admin", "seller"},
     "create_restock": {"admin", "seller"},
     "import_excel": {"admin", "seller"},

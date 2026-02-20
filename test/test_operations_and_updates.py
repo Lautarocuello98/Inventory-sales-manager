@@ -82,4 +82,4 @@ def test_container_uses_pyproject_version_for_updates(tmp_path: Path):
     db = tmp_path / "version.db"
     container = build_container(db)
 
-    assert container.updates.current_version == "1.1.2"
+    assert container.updates.current_version == "1.1.3"

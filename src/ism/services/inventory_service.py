@@ -37,10 +37,23 @@ class InventoryService:
         product = self.repo.get_product_by_id(int(product_id))
         if not product:
             raise NotFoundError("Product not found.")
-        if int(product.stock) > 0:
-            raise ValidationError("Cannot delete product with stock > 0.")
-        removed = self.repo.deactivate_product(int(product_id))
+        try:
+            removed = self.repo.deactivate_product(int(product_id))
+        except Exception as exc:
+            raise ValidationError(
+                "Cannot delete product permanently because it has historical movements."
+            ) from exc
         if not removed:
+            raise NotFoundError("Product not found.")
+
+    def update_product(self, product_id: int, price: float, min_stock: int) -> None:
+        if price <= 0:
+            raise ValidationError("Price must be > 0.")
+        if min_stock < 0:
+            raise ValidationError("Min stock must be >= 0.")
+
+        updated = self.repo.update_product_pricing_and_min_stock(int(product_id), float(price), int(min_stock))
+        if not updated:
             raise NotFoundError("Product not found.")
     
     def upsert_product_keep_stock(self, sku: str, name: str, cost: float, price: float, min_stock: int) -> int:
