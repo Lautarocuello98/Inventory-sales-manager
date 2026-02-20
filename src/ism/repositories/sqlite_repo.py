@@ -585,12 +585,60 @@ class SqliteRepository:
         conn.close()
         return bool(changed)
 
+    def adjust_product_stock(
+        self,
+        product_id: int,
+        qty_delta: int,
+        actor_user_id: Optional[int] = None,
+        notes: Optional[str] = None,
+    ) -> bool:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT stock, cost_usd FROM products WHERE id=? AND active=1", (int(product_id),))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return False
+
+        old_stock = int(row[0])
+        unit_value = float(row[1])
+        new_stock = old_stock + int(qty_delta)
+        if new_stock < 0:
+            conn.close()
+            raise ValueError("Cannot leave stock below zero.")
+
+        cur.execute("UPDATE products SET stock=? WHERE id=? AND active=1", (new_stock, int(product_id)))
+
+        cur.execute(
+            """
+            INSERT INTO stock_ledger (
+                datetime, product_id, movement_type, qty_delta, stock_after, unit_value_usd,
+                reference_type, reference_id, actor_user_id, notes
+            )
+            VALUES (?, ?, 'adjustment', ?, ?, ?, 'manual', 0, ?, ?)
+            """,
+            (
+                datetime.now().isoformat(timespec="seconds"),
+                int(product_id),
+                int(qty_delta),
+                new_stock,
+                unit_value,
+                actor_user_id,
+                notes,
+            ),
+        )
+
+        conn.commit()
+        conn.close()
+        return True
+
     def deactivate_product(self, product_id: int) -> bool:
         conn = self._conn()
         cur = conn.cursor()
         cur.execute(
             """
-            DELETE FROM products
+            UPDATE products
+            SET active=0, stock=0
             WHERE id=? AND active=1
             """,
             (int(product_id),),

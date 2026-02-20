@@ -37,13 +37,30 @@ class InventoryService:
         product = self.repo.get_product_by_id(int(product_id))
         if not product:
             raise NotFoundError("Product not found.")
-        try:
-            removed = self.repo.deactivate_product(int(product_id))
-        except Exception as exc:
-            raise ValidationError(
-                "Cannot delete product permanently because it has historical movements."
-            ) from exc
+        removed = self.repo.deactivate_product(int(product_id))
         if not removed:
+            raise NotFoundError("Product not found.")
+        
+    def remove_product_stock(self, product_id: int, qty: int, actor_user_id: int | None = None, notes: str | None = None) -> None:
+        if qty <= 0:
+            raise ValidationError("Quantity to remove must be > 0.")
+        product = self.repo.get_product_by_id(int(product_id))
+        if not product:
+            raise NotFoundError("Product not found.")
+        if qty > int(product.stock):
+            raise ValidationError(f"Not enough stock. Available: {product.stock}")
+        updated = self.repo.adjust_product_stock(int(product_id), -int(qty), actor_user_id=actor_user_id, notes=notes)
+        if not updated:
+            raise NotFoundError("Product not found.")
+
+    def clear_product_stock(self, product_id: int, actor_user_id: int | None = None, notes: str | None = None) -> None:
+        product = self.repo.get_product_by_id(int(product_id))
+        if not product:
+            raise NotFoundError("Product not found.")
+        if int(product.stock) == 0:
+            return
+        updated = self.repo.adjust_product_stock(int(product_id), -int(product.stock), actor_user_id=actor_user_id, notes=notes)
+        if not updated:
             raise NotFoundError("Product not found.")
 
     def update_product(self, product_id: int, price: float, min_stock: int) -> None:

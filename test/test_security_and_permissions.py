@@ -196,7 +196,7 @@ def test_admin_can_delete_product_with_stock(tmp_path: Path):
 
     assert repo.get_product_by_id(pid) is None
 
-def test_cannot_delete_product_with_historical_movements(tmp_path: Path):
+def test_can_delete_product_with_historical_movements(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "delete_history.db")
     repo.init_db()
     inv = InventoryService(repo)
@@ -211,8 +211,9 @@ def test_cannot_delete_product_with_historical_movements(tmp_path: Path):
         actor_user_id=None,
     )
 
-    with pytest.raises(ValidationError, match="historical movements"):
-        inv.delete_product(pid)
+    inv.delete_product(pid)
+
+    assert repo.get_product_by_id(pid) is None
 
 def test_bootstrap_admin_pin_is_written_to_restricted_file(tmp_path: Path):
     db = tmp_path / "bootstrap.db"
@@ -305,3 +306,28 @@ def test_bootstrap_admin_is_reactivated_with_new_provisional_pin(tmp_path: Path)
     admin = auth.login("admin", after)
     assert admin.username == "admin"
     assert int(admin.must_change_pin) == 1
+
+def test_can_remove_partial_product_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "remove_stock_partial.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-STK-1", "Stock product", 2.0, 4.0, 10, 0)
+    inv.remove_product_stock(pid, 3)
+
+    prod = repo.get_product_by_id(pid)
+    assert prod is not None
+    assert prod.stock == 7
+
+
+def test_can_clear_product_stock(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "remove_stock_clear.db")
+    repo.init_db()
+    inv = InventoryService(repo)
+
+    pid = inv.add_product("SKU-STK-2", "Stock clear", 2.0, 4.0, 8, 0)
+    inv.clear_product_stock(pid)
+
+    prod = repo.get_product_by_id(pid)
+    assert prod is not None
+    assert prod.stock == 0

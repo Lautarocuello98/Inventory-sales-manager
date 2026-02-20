@@ -88,10 +88,16 @@ class ProductsView:
         self.edit_price.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
         self.edit_min = ttk.Entry(edit_box, width=14)
         self.edit_min.grid(row=1, column=1, sticky="ew", padx=8, pady=(0, 8))
-        ttk.Button(edit_box, text="Save changes", command=self.on_update_product).grid(row=1, column=2, sticky="ew", padx=8, pady=(0, 8))
-        ttk.Button(edit_box, text="Delete permanently", command=self.on_delete_product).grid(row=1, column=3, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Label(edit_box, text="Remove stock qty").grid(row=0, column=2, sticky="w", padx=8, pady=(8, 4))
+        self.remove_stock_qty = ttk.Entry(edit_box, width=14)
+        self.remove_stock_qty.grid(row=1, column=2, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Save changes", command=self.on_update_product).grid(row=1, column=3, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Remove qty", command=self.on_remove_stock_qty).grid(row=1, column=4, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Clear stock", command=self.on_clear_stock).grid(row=1, column=5, sticky="ew", padx=8, pady=(0, 8))
+        ttk.Button(edit_box, text="Delete product", command=self.on_delete_product).grid(row=1, column=6, sticky="ew", padx=8, pady=(0, 8))
         edit_box.columnconfigure(0, weight=1)
         edit_box.columnconfigure(1, weight=1)
+        edit_box.columnconfigure(2, weight=1)
 
         self.tree.bind("<<TreeviewSelect>>", self._load_selected_product_for_edit)
 
@@ -201,8 +207,8 @@ class ProductsView:
             confirmed = messagebox.askyesno(
                 "Confirm delete",
                 (
-                    f"Delete product '{product_name}' (ID {product_id}) permanently?\n\n"
-                    "This action removes it completely from products."
+                    f"Delete product '{product_name}' (ID {product_id})?\n\n"
+                    "It will be hidden from active products even if it has historical movements."
                 ),
                 parent=self.frame,
             )
@@ -210,10 +216,73 @@ class ProductsView:
                 return
 
             self.app.inventory.delete_product(product_id)
-            self.app.toast("Product deleted permanently.", kind="success")
+            self.app.toast("Product deleted.", kind="success")
             self.app.refresh_all(silent_fx=True)
         except Exception as e:
             self.app.handle_error("Delete product", e, "Failed to delete product.")
+            
+    def on_remove_stock_qty(self):
+        try:
+            if not self.app.can_action("edit_product"):
+                raise PermissionError("Only admin can adjust stock.")
+
+            selected = self.tree.selection()
+            if not selected:
+                raise ValueError("Select a product.")
+
+            values = self.tree.item(selected[0], "values")
+            product_id = int(values[0])
+            product_name = str(values[2])
+            qty = self._parse_int(self.remove_stock_qty.get(), "Remove stock qty")
+
+            self.app.inventory.remove_product_stock(
+                product_id,
+                qty,
+                actor_user_id=self.app.current_user.id,
+                notes=f"Manual stock removal for {product_name}",
+            )
+            self.app.toast(f"Removed {qty} units from stock.", kind="success")
+            self.remove_stock_qty.delete(0, tk.END)
+            self.app.refresh_all(silent_fx=True)
+            self.select_product_in_tree(values[1])
+        except Exception as e:
+            self.app.handle_error("Remove stock", e, "Failed to remove stock.")
+
+    def on_clear_stock(self):
+        try:
+            if not self.app.can_action("edit_product"):
+                raise PermissionError("Only admin can adjust stock.")
+
+            selected = self.tree.selection()
+            if not selected:
+                raise ValueError("Select a product.")
+
+            values = self.tree.item(selected[0], "values")
+            product_id = int(values[0])
+            product_name = str(values[2])
+            current_stock = int(values[5])
+            if current_stock <= 0:
+                self.app.toast("This product already has zero stock.", kind="info")
+                return
+
+            confirmed = messagebox.askyesno(
+                "Confirm clear stock",
+                f"Set stock of '{product_name}' to zero? (remove {current_stock} units)",
+                parent=self.frame,
+            )
+            if not confirmed:
+                return
+
+            self.app.inventory.clear_product_stock(
+                product_id,
+                actor_user_id=self.app.current_user.id,
+                notes=f"Manual stock clear for {product_name}",
+            )
+            self.app.toast("Stock cleared to zero.", kind="success")
+            self.app.refresh_all(silent_fx=True)
+            self.select_product_in_tree(values[1])
+        except Exception as e:
+            self.app.handle_error("Clear stock", e, "Failed to clear stock.")
 
     def clear_form(self):
         for e in (self.p_sku, self.p_name, self.p_cost, self.p_price, self.p_stock, self.p_min):
