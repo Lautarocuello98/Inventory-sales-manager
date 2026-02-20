@@ -140,6 +140,24 @@ def test_admin_cannot_change_password_with_wrong_current_pin(tmp_path: Path):
     with pytest.raises(AuthorizationError):
         auth.change_my_pin(admin, "bad-current", "NewPass123", "NewPass123")
 
+
+def test_change_password_clears_must_change_flag(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "must_change_pin.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
+    auth.change_my_pin(admin, admin_pin, "NewPass123", "NewPass123")
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("SELECT must_change_pin FROM users WHERE id=?", (admin.id,))
+    must_change = int(cur.fetchone()[0])
+    conn.close()
+
+    assert must_change == 0
+
 def test_admin_can_delete_product_with_zero_stock(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "delete_ok.db")
     repo.init_db()

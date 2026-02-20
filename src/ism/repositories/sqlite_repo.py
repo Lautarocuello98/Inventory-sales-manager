@@ -419,13 +419,16 @@ class SqliteRepository:
     def change_user_pin(self, user_id: int, current_pin: str, new_pin: str) -> bool:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("UPDATE users SET pin=?, must_change_pin=0 WHERE id=?", (self._hash_pin(new_pin), int(user_id)))
+        cur.execute("SELECT pin FROM users WHERE id=? AND active=1", (int(user_id),))
         row = cur.fetchone()
         if not row or not self._verify_pin(str(row[0]), current_pin):
             conn.close()
             return False
 
-        cur.execute("UPDATE users SET pin=? WHERE id=?", (self._hash_pin(new_pin), int(user_id)))
+        cur.execute(
+            "UPDATE users SET pin=?, must_change_pin=0 WHERE id=?",
+            (self._hash_pin(new_pin), int(user_id)),
+        )
         conn.commit()
         conn.close()
         return True
