@@ -6,7 +6,11 @@ This project implements a clean layered architecture with proper separation of c
 
 ---
 
+## 🎬 Demo
 
+A quick overview of how the system works.
+
+https://youtu.be/fo5FR72vQPQ
 
 ---
 
