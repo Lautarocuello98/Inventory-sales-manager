@@ -60,7 +60,7 @@ class User:
     username: str
     role: str
     active: int = 1
-
+    must_change_pin: int = 0
 
 @dataclass(frozen=True)
 class LedgerEntry:

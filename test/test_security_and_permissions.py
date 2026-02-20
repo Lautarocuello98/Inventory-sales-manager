@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from conftest import set_admin_pin
+
 from ism.domain.errors import AuthorizationError, ValidationError
 from ism.repositories.sqlite_repo import SqliteRepository
 from ism.services.auth_service import AuthService
@@ -28,7 +30,8 @@ def test_default_admin_pin_is_hashed_and_login_works(tmp_path: Path):
     assert stored.startswith("pbkdf2_sha256$")
 
     auth = AuthService(repo)
-    user = auth.login("admin", "admin123!")
+    admin_pin = set_admin_pin(repo)
+    user = auth.login("admin", admin_pin)
     assert user.username == "admin"
 
 
@@ -116,11 +119,12 @@ def test_admin_can_change_own_password(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123!")
-    auth.change_my_pin(admin, "admin123!", "NewPass123", "NewPass123")
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
+    auth.change_my_pin(admin, admin_pin, "NewPass123", "NewPass123")
 
     with pytest.raises(AuthorizationError):
-        auth.login("admin", "admin123!")
+        auth.login("admin", admin_pin)
 
     updated = auth.login("admin", "NewPass123")
     assert updated.username == "admin"
@@ -131,7 +135,8 @@ def test_admin_cannot_change_password_with_wrong_current_pin(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123!")
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
     with pytest.raises(AuthorizationError):
         auth.change_my_pin(admin, "bad-current", "NewPass123", "NewPass123")
 

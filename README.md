@@ -248,8 +248,9 @@ ism
 ### Security and Operations
 - Role-based permission matrix per action (admin/seller/viewer).
 - PIN hashing with PBKDF2-SHA256.
-- Login protection with temporary lockout after repeated failed attempts.
-- One-click local SQLite backup from the app sidebar.
+- Bootstrap admin with temporary random PIN and forced password change on first login.
+- Login protection with temporary lockout after repeated failed attempts (persisted in DB).
+- One-click encrypted local SQLite backup (`.db.enc`) with retention and restore support.
 
 ---
 
@@ -279,3 +280,8 @@ ism
 
 Lautaro Cuello  
 Python Developer
+
+
+## License
+
+MIT (see `LICENSE`).

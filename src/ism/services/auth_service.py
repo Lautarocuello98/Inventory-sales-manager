@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from ism.domain.errors import AuthorizationError
 from ism.domain.models import User
@@ -27,34 +27,36 @@ class AuthService:
     def __init__(self, repo, policy: LoginPolicy | None = None):
         self.repo = repo
         self.policy = policy or LoginPolicy()
-        self._failed_attempts: dict[str, int] = {}
-        self._locked_until: dict[str, datetime] = {}
         
     def list_users(self) -> list[User]:
         return self.repo.list_users()
 
     def login(self, username: str, pin: str) -> User:
-        user_key = username.strip().lower()
-        if not user_key:
+        username_clean = username.strip()
+        if not username_clean:
             raise AuthorizationError("Username is required.")
 
-        locked_until = self._locked_until.get(user_key)
-        if locked_until and datetime.utcnow() < locked_until:
-            remaining = int((locked_until - datetime.utcnow()).total_seconds())
-            raise AuthorizationError(f"User is temporarily locked. Retry in {remaining}s.")
+        state = self.repo.get_user_security_state(username_clean)
+        if state:
+            _attempts, locked_until = state
+            if locked_until:
+                until = datetime.fromisoformat(locked_until)
+                if datetime.utcnow() < until:
+                    remaining = int((until - datetime.utcnow()).total_seconds())
+                    raise AuthorizationError(f"User is temporarily locked. Retry in {remaining}s.")
 
-        user = self.repo.authenticate_user(username.strip(), pin.strip())
+        user = self.repo.authenticate_user(username_clean, pin.strip())
         if not user:
-            attempts = self._failed_attempts.get(user_key, 0) + 1
-            self._failed_attempts[user_key] = attempts
-            if attempts >= self.policy.max_failed_attempts:
-                self._locked_until[user_key] = datetime.utcnow() + timedelta(seconds=self.policy.lockout_seconds)
-                self._failed_attempts[user_key] = 0
+            attempts, locked_until = self.repo.record_login_failure(
+                username_clean,
+                self.policy.max_failed_attempts,
+                self.policy.lockout_seconds,
+            )
+            if locked_until is not None or attempts == 0:
                 raise AuthorizationError("Too many failed attempts. User is temporarily locked.")
             raise AuthorizationError("Invalid username or PIN.")
 
-        self._failed_attempts.pop(user_key, None)
-        self._locked_until.pop(user_key, None)
+        self.repo.clear_login_guard(user.id)
         return user
     
     def can(self, user: User, action: str) -> bool:
@@ -85,9 +87,9 @@ class AuthService:
             raise AuthorizationError("Only seller or viewer users can be created.")
 
         try:
-            return self.repo.create_user(user, secret, target_role)
+            return self.repo.create_user(user, secret, target_role, must_change_pin=1)
         except Exception as exc:
-          raise AuthorizationError(f"Could not create user '{user}': {exc}") from exc
+            raise AuthorizationError(f"Could not create user '{user}': {exc}") from exc
 
 
     def change_my_pin(self, actor: User, current_pin: str, new_pin: str, confirm_pin: str) -> None:

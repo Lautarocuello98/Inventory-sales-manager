@@ -21,6 +21,7 @@ class SqliteRepository:
 
     def init_db(self) -> None:
         self.run_migrations()
+        self._ensure_bootstrap_admin()
 
     def run_migrations(self) -> None:
         conn = self._conn()
@@ -32,6 +33,7 @@ class SqliteRepository:
         migrations = [
             (1, self._migration_v1_base),
             (2, self._migration_v2_constraints_and_ledger),
+            (3, self._migration_v3_auth_hardening),
         ]
 
         for version, migration in migrations:
@@ -134,15 +136,6 @@ class SqliteRepository:
             )
             """
         )
-        cur.execute(
-            """
-            INSERT INTO users (username, pin, role)
-            SELECT 'admin', ?, 'admin'
-            WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')
-            """
-            ,
-            (self._hash_pin("admin123!"),),
-        )
 
         cur.execute(
             """
@@ -171,6 +164,51 @@ class SqliteRepository:
         self._rebuild_sale_items_with_constraints(cur)
         self._rebuild_purchase_items_with_constraints(cur)
         self._rebuild_fx_rates_with_constraints(cur)
+
+    def _migration_v3_auth_hardening(self, cur: sqlite3.Cursor) -> None:
+        self._add_column_if_missing(cur, "users", "failed_attempts", "INTEGER NOT NULL DEFAULT 0")
+        self._add_column_if_missing(cur, "users", "locked_until", "TEXT")
+        self._add_column_if_missing(cur, "users", "must_change_pin", "INTEGER NOT NULL DEFAULT 0")
+
+        # If legacy predictable bootstrap credentials still exist, force reset on first login.
+        cur.execute(
+            """
+            UPDATE users
+            SET must_change_pin = 1
+            WHERE username = 'admin'
+            """
+        )
+
+    def _ensure_bootstrap_admin(self) -> None:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users WHERE active=1")
+        active_users = int(cur.fetchone()[0])
+        if active_users > 0:
+            conn.close()
+            return
+
+        generated_pin = secrets.token_urlsafe(9)
+        cur.execute(
+            """
+            INSERT INTO users (username, pin, role, active, must_change_pin)
+            VALUES ('admin', ?, 'admin', 1, 1)
+            """,
+            (self._hash_pin(generated_pin),),
+        )
+        conn.commit()
+        conn.close()
+
+        print(
+            f"[ISM bootstrap] Usuario admin creado. PIN temporal: {generated_pin}. Debe cambiarlo en el primer ingreso."
+        )
+
+    def _add_column_if_missing(self, cur: sqlite3.Cursor, table: str, column: str, definition: str) -> None:
+        cur.execute(f"PRAGMA table_info({table})")
+        cols = {str(r[1]) for r in cur.fetchall()}
+        if column in cols:
+            return
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def _rebuild_products_with_constraints(self, cur: sqlite3.Cursor) -> None:
         cur.execute(
@@ -274,38 +312,104 @@ class SqliteRepository:
     def list_users(self) -> list[User]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("SELECT id, username, role, active FROM users WHERE active=1 ORDER BY username")
+        cur.execute(
+            "SELECT id, username, role, active, COALESCE(must_change_pin, 0) FROM users WHERE active=1 ORDER BY username"
+        )
         rows = cur.fetchall()
         conn.close()
-        return [User(id=int(r[0]), username=str(r[1]), role=str(r[2]), active=int(r[3])) for r in rows]
+        return [
+            User(
+                id=int(r[0]),
+                username=str(r[1]),
+                role=str(r[2]),
+                active=int(r[3]),
+                must_change_pin=int(r[4]),
+            )
+            for r in rows
+        ]
+
+    def _get_user_row(self, cur: sqlite3.Cursor, username: str):
+        cur.execute(
+            """
+            SELECT id, username, role, active, pin,
+                   COALESCE(failed_attempts, 0), locked_until, COALESCE(must_change_pin, 0)
+            FROM users
+            WHERE active=1 AND username=?
+            """,
+            (username,),
+        )
+        return cur.fetchone()
+
+    def get_user_security_state(self, username: str) -> tuple[int, Optional[str]] | None:
+        conn = self._conn()
+        cur = conn.cursor()
+        row = self._get_user_row(cur, username)
+        conn.close()
+        if not row:
+            return None
+        return int(row[5]), (str(row[6]) if row[6] is not None else None)
+
+    def record_login_failure(self, username: str, max_attempts: int, lockout_seconds: int) -> tuple[int, Optional[str]]:
+        conn = self._conn()
+        cur = conn.cursor()
+        row = self._get_user_row(cur, username)
+        if not row:
+            conn.close()
+            return 0, None
+
+        attempts = int(row[5]) + 1
+        locked_until = None
+        if attempts >= int(max_attempts):
+            attempts = 0
+            cur.execute(
+                "UPDATE users SET failed_attempts=?, locked_until=datetime('now', ?) WHERE id=?",
+                (attempts, f"+{int(lockout_seconds)} seconds", int(row[0])),
+            )
+            cur.execute("SELECT locked_until FROM users WHERE id=?", (int(row[0]),))
+            locked_until = str(cur.fetchone()[0])
+        else:
+            cur.execute("UPDATE users SET failed_attempts=? WHERE id=?", (attempts, int(row[0])))
+        conn.commit()
+        conn.close()
+        return attempts, locked_until
+
+    def clear_login_guard(self, user_id: int) -> None:
+        conn = self._conn()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=?", (int(user_id),))
+        conn.commit()
+        conn.close()
 
     def authenticate_user(self, username: str, pin: str) -> Optional[User]:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute(
-            "SELECT id, username, role, active, pin FROM users WHERE active=1 AND username=?",
-            (username,),
-        )
-        row = cur.fetchone()
+        row = self._get_user_row(cur, username)
         if row and self._verify_pin(str(row[4]), pin):
             # transparent upgrade from legacy plain-text pins
             if not str(row[4]).startswith("pbkdf2_sha256$"):
                 cur.execute("UPDATE users SET pin=? WHERE id=?", (self._hash_pin(pin), int(row[0])))
-                conn.commit()
+            cur.execute("UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=?", (int(row[0]),))
+            conn.commit()
             conn.close()
-            return User(id=int(row[0]), username=str(row[1]), role=str(row[2]), active=int(row[3]))
+            return User(
+                id=int(row[0]),
+                username=str(row[1]),
+                role=str(row[2]),
+                active=int(row[3]),
+                must_change_pin=int(row[7]),
+            )
         conn.close()
         return None
 
-    def create_user(self, username: str, pin: str, role: str) -> int:
+    def create_user(self, username: str, pin: str, role: str, must_change_pin: int = 0) -> int:
         conn = self._conn()
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO users (username, pin, role, active)
-            VALUES (?, ?, ?, 1)
+            INSERT INTO users (username, pin, role, active, must_change_pin)
+            VALUES (?, ?, ?, 1, ?)
             """,
-            (username, self._hash_pin(pin), role),
+            (username, self._hash_pin(pin), role, int(must_change_pin)),
         )
         uid = int(cur.lastrowid)
         conn.commit()
@@ -315,7 +419,7 @@ class SqliteRepository:
     def change_user_pin(self, user_id: int, current_pin: str, new_pin: str) -> bool:
         conn = self._conn()
         cur = conn.cursor()
-        cur.execute("SELECT pin FROM users WHERE id=? AND active=1", (int(user_id),))
+        cur.execute("UPDATE users SET pin=?, must_change_pin=0 WHERE id=?", (self._hash_pin(new_pin), int(user_id)))
         row = cur.fetchone()
         if not row or not self._verify_pin(str(row[0]), current_pin):
             conn.close()
@@ -927,8 +1031,8 @@ class SqliteRepository:
         return [PurchaseLine(sku=str(r[0]), name=str(r[1]), qty=int(r[2]), unit_cost_usd=float(r[3]), line_total_usd=float(r[4])) for r in rows]
 
     @staticmethod
-    def _hash_pin(pin: str, *, rounds: int = 200_000) -> str:
-        salt = secrets.token_hex(16)
+    def _hash_pin(pin: str, *, rounds: int = 200_000, salt: str | None = None) -> str:
+        salt = salt or secrets.token_hex(16)
         digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), bytes.fromhex(salt), rounds).hex()
         return f"pbkdf2_sha256${rounds}${salt}${digest}"
 

@@ -124,7 +124,40 @@ class App(tk.Tk):
         self.wait_window(dialog)
         if not result["user"]:
             raise RuntimeError("Login is required")
+        if int(getattr(result["user"], "must_change_pin", 0)) == 1:
+            self._force_change_password(result["user"])
         return result["user"]
+    
+    def _force_change_password(self, user):
+        dialog = tk.Toplevel(self)
+        dialog.title("Password update required")
+        dialog.geometry("460x280")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        current_pin = tk.StringVar()
+        new_pin = tk.StringVar()
+        confirm_pin = tk.StringVar()
+
+        ttk.Label(dialog, text="Security setup", style="Title.TLabel").pack(anchor="w", padx=20, pady=(16, 2))
+        ttk.Label(dialog, text="You must change your password before continuing.").pack(anchor="w", padx=20, pady=(0, 12))
+
+        ttk.Label(dialog, text="Current password").pack(anchor="w", padx=20)
+        ttk.Entry(dialog, textvariable=current_pin, show="*").pack(fill="x", padx=20, pady=(2, 8))
+        ttk.Label(dialog, text="New password").pack(anchor="w", padx=20)
+        ttk.Entry(dialog, textvariable=new_pin, show="*").pack(fill="x", padx=20, pady=(2, 8))
+        ttk.Label(dialog, text="Confirm password").pack(anchor="w", padx=20)
+        ttk.Entry(dialog, textvariable=confirm_pin, show="*").pack(fill="x", padx=20, pady=(2, 8))
+
+        def submit():
+            try:
+                self.auth.change_my_pin(user, current_pin.get(), new_pin.get(), confirm_pin.get())
+                dialog.destroy()
+            except Exception as e:
+                messagebox.showerror("Password update required", str(e), parent=dialog)
+
+        ttk.Button(dialog, text="Update password", style="Primary.TButton", command=submit).pack(pady=12)
+        self.wait_window(dialog)
 
     def _build_styles(self):
         style = ttk.Style(self)

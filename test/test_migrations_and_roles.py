@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from conftest import set_admin_pin
 
 from ism.domain.errors import AuthorizationError
 from ism.repositories.sqlite_repo import SqliteRepository
@@ -39,7 +40,8 @@ def test_admin_can_create_seller_and_viewer(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123!")
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
     auth.create_user(admin, "seller1", "1234", "seller")
     auth.create_user(admin, "viewer1", "1234", "viewer")
 
@@ -54,7 +56,8 @@ def test_non_admin_cannot_create_user(tmp_path: Path):
     repo.init_db()
     auth = AuthService(repo)
 
-    admin = auth.login("admin", "admin123!")
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
     auth.create_user(admin, "seller2", "1234", "seller")
     seller = auth.login("seller2", "1234")
 
