@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import hashlib
 import hmac
+import os   
 import secrets
 from pathlib import Path
 from typing import Iterable, Optional
@@ -188,20 +189,24 @@ class SqliteRepository:
             conn.close()
             return
 
-        generated_pin = secrets.token_urlsafe(9)
+        bootstrap_pin = os.environ.get("ISM_BOOTSTRAP_ADMIN_PIN", "").strip() or secrets.token_urlsafe(12)
         cur.execute(
             """
             INSERT INTO users (username, pin, role, active, must_change_pin)
             VALUES ('admin', ?, 'admin', 1, 1)
             """,
-            (self._hash_pin(generated_pin),),
+            (self._hash_pin(bootstrap_pin),),
         )
         conn.commit()
         conn.close()
 
-        print(
-            f"[ISM bootstrap] Usuario admin creado. PIN temporal: {generated_pin}. Debe cambiarlo en el primer ingreso."
-        )
+        # Secure local onboarding channel: store one-time bootstrap PIN in a file with restricted permissions.
+        pin_file = Path(self.db_path).parent / ".admin_bootstrap_pin"
+        pin_file.write_text(bootstrap_pin + "\n", encoding="utf-8")
+        try:
+            pin_file.chmod(0o600)
+        except Exception:
+            pass
 
     def _add_column_if_missing(self, cur: sqlite3.Cursor, table: str, column: str, definition: str) -> None:
         cur.execute(f"PRAGMA table_info({table})")

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import sqlite3
+import secrets
+import subprocess
 from datetime import datetime
 from pathlib import Path
-import secrets
 
 
 class BackupService:
@@ -21,17 +21,10 @@ class BackupService:
 
         key = self._get_or_create_key(key_path)
 
-        src = sqlite3.connect(str(self.db_path))
-        dst = sqlite3.connect(":memory:")
-        try:
-            src.backup(dst)
-            payload = "\n".join(dst.iterdump()).encode("utf-8")
-            encrypted = self._encrypt_payload(payload, key)
-            target.write_bytes(encrypted)
-            self._enforce_retention(max_backups=30)
-        finally:
-            dst.close()
-            src.close()
+        payload = self.db_path.read_bytes()
+        encrypted = self._encrypt_payload(payload, key)
+        target.write_bytes(encrypted)
+        self._enforce_retention(max_backups=30)
         return target
 
     def restore_backup(self, backup_file: Path | str) -> Path:
@@ -39,17 +32,10 @@ class BackupService:
         key = self._get_or_create_key(self.backup_dir / ".backup.key")
 
         encrypted = backup_path.read_bytes()
-        payload = self._decrypt_payload(encrypted, key).decode("utf-8")
+        payload = self._decrypt_payload(encrypted, key)
 
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            conn.close()
-            self.db_path.unlink(missing_ok=True)
-            conn = sqlite3.connect(str(self.db_path))
-            conn.executescript(payload)
-            conn.commit()
-        finally:
-            conn.close()
+        self.db_path.unlink(missing_ok=True)
+        self.db_path.write_bytes(payload)
         return self.db_path
 
     def _get_or_create_key(self, key_path: Path) -> bytes:
@@ -71,29 +57,36 @@ class BackupService:
             old.unlink(missing_ok=True)
 
     def _encrypt_payload(self, payload: bytes, key: bytes) -> bytes:
-        nonce = secrets.token_bytes(16)
-        keystream = self._keystream(key, nonce, len(payload))
-        cipher = bytes(a ^ b for a, b in zip(payload, keystream))
-        tag = hmac.new(key, nonce + cipher, hashlib.sha256).digest()
-        return nonce + tag + cipher
+        cipher = self._openssl(payload, key, decrypt=False)
+        tag = hmac.new(key, cipher, hashlib.sha256).digest()
+        return b"OSSL1" + tag + cipher
 
     def _decrypt_payload(self, blob: bytes, key: bytes) -> bytes:
-        if len(blob) < 48:
+        if len(blob) < 37 or not blob.startswith(b"OSSL1"):
             raise ValueError("Invalid encrypted backup format")
-        nonce = blob[:16]
-        tag = blob[16:48]
-        cipher = blob[48:]
-        expected = hmac.new(key, nonce + cipher, hashlib.sha256).digest()
+        tag = blob[5:37]
+        cipher = blob[37:]
+        expected = hmac.new(key, cipher, hashlib.sha256).digest()
         if not hmac.compare_digest(tag, expected):
             raise ValueError("Backup integrity check failed")
-        keystream = self._keystream(key, nonce, len(cipher))
-        return bytes(a ^ b for a, b in zip(cipher, keystream))
+        return self._openssl(cipher, key, decrypt=True)
 
-    def _keystream(self, key: bytes, nonce: bytes, length: int) -> bytes:
-        out = bytearray()
-        counter = 0
-        while len(out) < length:
-            block = hashlib.sha256(key + nonce + counter.to_bytes(8, "big")).digest()
-            out.extend(block)
-            counter += 1
-        return bytes(out[:length])
+    def _openssl(self, data: bytes, key: bytes, *, decrypt: bool) -> bytes:
+        cmd = [
+            "openssl",
+            "enc",
+            "-aes-256-cbc",
+            "-pbkdf2",
+            "-iter",
+            "200000",
+            "-salt",
+            "-pass",
+            f"pass:{key.hex()}",
+        ]
+        if decrypt:
+            cmd.insert(3, "-d")
+
+        proc = subprocess.run(cmd, input=data, capture_output=True)
+        if proc.returncode != 0:
+            raise ValueError(f"Backup cipher operation failed: {proc.stderr.decode('utf-8', errors='ignore').strip()}")
+        return proc.stdout

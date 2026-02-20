@@ -2,15 +2,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import re
 
 from ism.domain.errors import AuthorizationError
 from ism.domain.models import User
 
 @dataclass(frozen=True)
 class LoginPolicy:
-    min_pin_length: int = 4
+    min_pin_length: int = 8
     max_failed_attempts: int = 5
     lockout_seconds: int = 60
+
+def _validate_secret_strength(secret: str, *, min_len: int) -> None:
+    if len(secret) < min_len:
+        raise AuthorizationError(f"PIN must have at least {min_len} characters.")
+    if not re.search(r"[A-Za-z]", secret):
+        raise AuthorizationError("PIN must include at least one letter.")
+    if not re.search(r"\d", secret):
+        raise AuthorizationError("PIN must include at least one number.")
 
 
 PERMISSIONS: dict[str, set[str]] = {
@@ -81,8 +90,7 @@ class AuthService:
         target_role = role.strip().lower()
         if not user:
             raise AuthorizationError("Username is required.")
-        if len(secret) < self.policy.min_pin_length:
-            raise AuthorizationError(f"PIN must have at least {self.policy.min_pin_length} characters.")
+        _validate_secret_strength(secret, min_len=self.policy.min_pin_length)
         if target_role not in {"seller", "viewer"}:
             raise AuthorizationError("Only seller or viewer users can be created.")
 
@@ -99,8 +107,7 @@ class AuthService:
 
         if not current_secret:
             raise AuthorizationError("Current password is required.")
-        if len(new_secret) < self.policy.min_pin_length:
-            raise AuthorizationError(f"New password must have at least {self.policy.min_pin_length} characters.")
+        _validate_secret_strength(new_secret, min_len=self.policy.min_pin_length)
         if new_secret != confirm_secret:
             raise AuthorizationError("Password confirmation does not match.")
         if new_secret == current_secret:

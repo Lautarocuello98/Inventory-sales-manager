@@ -42,8 +42,8 @@ def test_admin_can_create_seller_and_viewer(tmp_path: Path):
 
     admin_pin = set_admin_pin(repo)
     admin = auth.login("admin", admin_pin)
-    auth.create_user(admin, "seller1", "1234", "seller")
-    auth.create_user(admin, "viewer1", "1234", "viewer")
+    auth.create_user(admin, "seller1", "Seller123", "seller")
+    auth.create_user(admin, "viewer1", "Viewer123", "viewer")
 
     users = auth.list_users()
     roles = {u.username: u.role for u in users}
@@ -58,8 +58,8 @@ def test_non_admin_cannot_create_user(tmp_path: Path):
 
     admin_pin = set_admin_pin(repo)
     admin = auth.login("admin", admin_pin)
-    auth.create_user(admin, "seller2", "1234", "seller")
-    seller = auth.login("seller2", "1234")
+    auth.create_user(admin, "seller2", "Seller123", "seller")
+    seller = auth.login("seller2", "Seller123")
 
     with pytest.raises(AuthorizationError):
-        auth.create_user(seller, "x", "1234", "viewer")
+        auth.create_user(seller, "x", "Viewer123", "viewer")

@@ -24,7 +24,7 @@ def test_backup_service_creates_db_copy(tmp_path: Path):
 def test_auth_service_locks_after_failed_attempts(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "sec_lock.db")
     repo.init_db()
-    auth = AuthService(repo, policy=LoginPolicy(max_failed_attempts=2, lockout_seconds=30, min_pin_length=4))
+    auth = AuthService(repo, policy=LoginPolicy(max_failed_attempts=2, lockout_seconds=30, min_pin_length=8))
 
     with pytest.raises(Exception):
         auth.login("admin", "bad")
@@ -34,12 +34,12 @@ def test_auth_service_locks_after_failed_attempts(tmp_path: Path):
 def test_auth_lockout_persists_between_service_instances(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "sec_lock_persist.db")
     repo.init_db()
-    auth = AuthService(repo, policy=LoginPolicy(max_failed_attempts=1, lockout_seconds=30, min_pin_length=4))
+    auth = AuthService(repo, policy=LoginPolicy(max_failed_attempts=1, lockout_seconds=30, min_pin_length=8))
 
     with pytest.raises(Exception, match="locked"):
         auth.login("admin", "bad")
 
-    auth2 = AuthService(repo, policy=LoginPolicy(max_failed_attempts=1, lockout_seconds=30, min_pin_length=4))
+    auth2 = AuthService(repo, policy=LoginPolicy(max_failed_attempts=1, lockout_seconds=30, min_pin_length=8))
     with pytest.raises(Exception, match="locked"):
         auth2.login("admin", "bad")
 

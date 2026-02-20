@@ -247,10 +247,10 @@ ism
 
 ### Security and Operations
 - Role-based permission matrix per action (admin/seller/viewer).
-- PIN hashing with PBKDF2-SHA256.
-- Bootstrap admin with temporary random PIN and forced password change on first login.
+- Password hashing with PBKDF2-SHA256 and stronger credential policy (min 8, letters + numbers).
+- Bootstrap admin with temporary one-time credential stored in local restricted file (`.admin_bootstrap_pin`) and forced password change on first login.
 - Login protection with temporary lockout after repeated failed attempts (persisted in DB).
-- One-click encrypted local SQLite backup (`.db.enc`) with retention and restore support.
+- One-click encrypted local SQLite backup (`.db.enc`) with retention and restore support using OpenSSL AES-256 + PBKDF2 with HMAC integrity checks.
 
 ---
 

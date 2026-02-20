@@ -114,6 +114,23 @@ def test_reports_export_denied_for_unknown_role():
     assert calls and calls[0][0] == "Export error"
     assert "can not import" in calls[0][1]
 
+def test_admin_cannot_create_user_with_weak_pin(tmp_path: Path):
+    repo = SqliteRepository(tmp_path / "weak_pin.db")
+    repo.init_db()
+    auth = AuthService(repo)
+
+    admin_pin = set_admin_pin(repo)
+    admin = auth.login("admin", admin_pin)
+
+    with pytest.raises(AuthorizationError, match="at least"):
+        auth.create_user(admin, "sellerw", "1234", "seller")
+
+    with pytest.raises(AuthorizationError, match="letter"):
+        auth.create_user(admin, "sellerw", "12345678", "seller")
+
+    with pytest.raises(AuthorizationError, match="number"):
+        auth.create_user(admin, "sellerw", "OnlyLetters", "seller")
+
 def test_admin_can_change_own_password(tmp_path: Path):
     repo = SqliteRepository(tmp_path / "change_pin.db")
     repo.init_db()
@@ -178,3 +195,12 @@ def test_cannot_delete_product_with_stock(tmp_path: Path):
 
     with pytest.raises(ValidationError, match="stock > 0"):
         inv.delete_product(pid)
+
+def test_bootstrap_admin_pin_is_written_to_restricted_file(tmp_path: Path):
+    db = tmp_path / "bootstrap.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    pin_file = tmp_path / ".admin_bootstrap_pin"
+    assert pin_file.exists()
+    assert pin_file.read_text(encoding="utf-8").strip()

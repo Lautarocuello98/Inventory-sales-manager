@@ -22,7 +22,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pyinstaller
+          pip install pyinstaller ruff pip-audit pytest
+
+      - name: Quality gates
+        run: |
+          ruff check src test
+          pytest -q
+          pip-audit
 
       - name: Build
         run: |
@@ -49,7 +55,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pyinstaller
+          pip install pyinstaller ruff pip-audit pytest
+
+      - name: Quality gates
+        run: |
+          ruff check src test
+          pytest -q
+          pip-audit
 
       - name: Build
         run: |
