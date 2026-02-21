@@ -11,3 +11,4 @@ build/
 *.egg
 inventory_sales_manager.egg-info
 .pytest_cache
+release/
