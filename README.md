@@ -36,24 +36,10 @@ The system guarantees full traceability of stock movements and financial calcula
 
 ---
 
-## Quick Start (5 minutes)
+## Distribution
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-python -m pip install --upgrade pip
-python -m pip install -e .
-python -m ism.main
-```
-
-On Windows (PowerShell), use:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e .
-python -m ism.main
-```
+This repository is maintained as a portfolio/technical overview.
+Commercial binaries and support are distributed through private channels.
 
 ---
 
@@ -229,52 +215,6 @@ Transactional integrity is enforced for both sales and purchases.
 
 ---
 
-## 🛠 Installation
-
-### 1. Create virtual environment
-
-```bash
-py -m venv .venv
-```
-
-### 2. Activate (PowerShell)
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-If blocked:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-### 3. Install project
-
-From project root:
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install -e .
-```
-
----
-
-## Run Application
-
-From project root:
-
-```bash
-python -m ism.main
-```
-
-If installed with entry point:
-
-```bash
-ism
-```
----
-
 ### Security and Operations
 - Role-based permission matrix per action (admin/seller/viewer).
 - Password hashing with PBKDF2-SHA256 and stronger credential policy (min 8, letters + numbers).
@@ -326,24 +266,6 @@ Run locally before sharing or releasing:
 pytest -q
 ruff check .
 ```
-
----
-
-## Commercial Readiness
-
-This repository now includes:
-
-- Repeatable release process and scripts in `scripts/` plus release manifest in `release/latest.json`.
-- In-app update check against `release/latest.json` endpoint or local manifest.
-- Operations docs for support SLA and incident response in `docs/operations/`.
-- QA final checklist in `docs/qa/QA_FINAL_CHECKLIST.md`.
-- Reliability utilities in UI: health check, diagnostics export, and latest-backup restore.
-
-See:
-- `docs/release/RELEASE_PROCESS.md`
-- `docs/operations/SUPPORT_SLA_AND_INCIDENTS.md`
-- `docs/operations/COMMERCIAL_TERMS.md`
-- `docs/qa/QA_FINAL_CHECKLIST.md`
 
 ---
 
