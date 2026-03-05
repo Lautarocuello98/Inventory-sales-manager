@@ -1,12 +1,30 @@
-# Inventory & Sales Manager (ISM)
+# 📦 Inventory & Sales Manager (ISM)
 
-A professional desktop application for inventory, sales, and restock management built with Python, Tkinter, and SQLite.
+> Professional desktop inventory and sales management system built with Python, Tkinter, and SQLite.
 
-This project implements a clean layered architecture with proper separation of concerns between domain logic, services, repositories, and UI. It is designed to demonstrate production-ready structure, financial correctness, and maintainability.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)  
+[![Tests: pytest](https://img.shields.io/badge/tests-pytest-green.svg)](#quality-checks)
 
 ---
 
-## 🎬 Demo
+# ✨ Overview
+
+Inventory & Sales Manager (ISM) is a **desktop business management system** designed to handle inventory, sales, and restock operations with full financial traceability.
+
+The application demonstrates a **clean layered architecture** with strict separation between domain logic, services, repositories, and the user interface.
+
+The system focuses on:
+
+- Accurate financial calculations
+- Traceable inventory movements
+- Clean modular architecture
+- Maintainability and extensibility
+- Automated business logic testing
+
+---
+
+# 🎬 Demo
 
 A quick overview of how the system works.
 
@@ -14,133 +32,185 @@ https://youtu.be/fo5FR72vQPQ
 
 ---
 
-## Screenshot
+# 🖼 Screenshot
 
 ![Start](media/screenshot.png)
 
 ---
 
-## Overview
+# 🚀 Features
 
-Inventory & Sales Manager (ISM) is a desktop system that allows small businesses or individuals to:
-
-- Manage product inventory
-- Register sales with automatic stock deduction
-- Track restock operations with weighted cost recalculation
-- Convert USD to ARS using live exchange rates
-- Import products from Excel
-- Export professional Excel reports
-- Monitor KPIs and profit performance
-
-The system guarantees full traceability of stock movements and financial calculations.
-
----
-
-## Distribution
-
-This repository is maintained as a portfolio/technical overview.
-Commercial binaries and support are distributed through private channels.
+| Feature | Description |
+|-------|-------------|
+| Product Management | SKU-based product catalog with stock monitoring |
+| Sales Workflow | Cart-based sales with automatic stock deduction |
+| Restock Management | Purchase tracking with weighted cost recalculation |
+| Currency Conversion | USD → ARS conversion using live FX rates |
+| Excel Integration | Import products and export professional reports |
+| KPI Monitoring | Revenue and profit metrics |
+| Role-Based Security | Permission-based operations |
+| Backup & Restore | Encrypted database backup system |
 
 ---
 
-## Architecture
+# 📦 Distribution
 
-The project follows a layered architecture to ensure maintainability and scalability.
+This repository is maintained as a **technical portfolio overview**.
+
+Commercial binaries, installers, and support are distributed through private channels.
+
+---
+
+# 🏗 Architecture
+
+The project follows a layered architecture designed for scalability and maintainability.
 
 ```
 inventory-sales-manager/
 │
+├── .github/workflows/            # CI/CD pipelines
+│   ├── build.yml
+│   └── release.yml
+│
+├── docs/                         # Operational and QA documentation
+│   ├── operations/
+│   │   ├── COMMERCIAL_TERMS.md
+│   │   └── SUPPORT_SLA_AND_INCIDENTS.md
+│   │
+│   ├── qa/
+│   │   └── QA_FINAL_CHECKLIST.md
+│   │
+│   └── release/
+│       └── RELEASE_PROCESS.md
+│
+├── media/                        # Screenshots and demo assets
+│   └── screenshot.png
+│
+├── release/                      # Update metadata
+│   └── latest.json
+│
+├── scripts/                      # Operational scripts
+│   └── check_release.sh
+│
+├── src/ism/                      # Application source code
+│
+│   ├── main.py                   # Application entry point
+│   ├── config.py                 # Configuration management
+│   ├── logging_config.py         # Logging setup
+│
+│   ├── application/              # Dependency wiring / container
+│   │   └── container.py
+│
+│   ├── domain/                   # Core business models and rules
+│   │   ├── models.py
+│   │   └── errors.py
+│
+│   ├── repositories/             # Data access layer
+│   │   ├── contracts.py
+│   │   ├── sqlite_repo.py
+│   │   └── unit_of_work.py
+│
+│   ├── services/                 # Business logic services
+│   │   ├── auth_service.py
+│   │   ├── backup_service.py
+│   │   ├── excel_service.py
+│   │   ├── fx_service.py
+│   │   ├── inventory_service.py
+│   │   ├── operation_service.py
+│   │   ├── purchase_service.py
+│   │   ├── reporting_service.py
+│   │   ├── sales_service.py
+│   │   └── update_service.py
+│
+│   └── ui/                       # Tkinter presentation layer
+│       ├── app.py
+│       ├── config.py
+│       ├── logging_config.py
+│       │
+│       └── views/
+│           ├── products_view.py
+│           ├── sales_view.py
+│           ├── restock_view.py
+│           └── reports_view.py
+│
+├── test/                         # Automated tests (pytest)
+│   ├── conftest.py
+│   ├── test_backup_and_auth_policy.py
+│   ├── test_business_invariants.py
+│   ├── test_fx_fallback.py
+│   ├── test_migrations_and_roles.py
+│   ├── test_operations_and_updates.py
+│   ├── test_purchase_atomicity.py
+│   ├── test_sales_fx_validation.py
+│   ├── test_sales_validation.py
+│   └── test_security_and_permissions.py
+│
+├── InventorySalesManager.spec
 ├── pyproject.toml
+├── requirements.txt
 ├── README.md
-└── src/
-    └── ism/
-        │
-        ├── main.py
-        ├── config.py
-        ├── logging_config.py
-        │
-        ├── domain/
-        │   ├── models.py
-        │   └── errors.py
-        │
-        ├── repositories/
-        │   └── sqlite_repo.py
-        │
-        ├── services/
-        │   ├── fx_service.py
-        │   ├── inventory_service.py
-        │   ├── sales_service.py
-        │   ├── purchase_service.py
-        │   ├── excel_service.py
-        │   └── reporting_service.py
-        │
-        └── ui/
-            ├── app.py
-            └── views/
-                ├── products_view.py
-                ├── sales_view.py
-                ├── restock_view.py
-                └── reports_view.py
+├── LICENSE
+└── .gitignore
 ```
 
 ---
 
-## Architecture Principles
+# Architecture Principles
 
 ### Domain Layer
-- Contains business entities and domain rules
-- No UI or database dependencies
+
+Contains business entities and domain rules.
+
+- No UI dependencies
+- No database dependencies
+
+---
 
 ### Repository Layer
-- Handles SQLite persistence
-- Encapsulates all SQL operations
+
+Responsible for data persistence.
+
+- SQLite access
+- SQL encapsulation
+- Unit of Work pattern for transaction safety
+
+---
 
 ### Service Layer
-Implements business logic:
+
+Implements business logic such as:
+
 - Stock validation
-- Weighted average cost
+- Weighted average cost calculation
 - Profit calculation
 - FX handling
 - Reporting aggregation
 - Excel import/export coordination
 
-### UI Layer
-- Tkinter-based presentation layer
-- No business logic
-- All operations go through services
+---
 
-### Dependency Injection
-- Services are wired in `main.py` and injected into the UI
-- The UI never instantiates repositories directly
+### UI Layer
+
+Tkinter-based presentation layer.
+
+- Contains no business logic
+- All operations are executed through services
 
 ---
 
-## Features
+### Dependency Injection
 
-### Product Management
-- SKU-based product identification
-- Create and update products
-- Minimum stock thresholds
-- Low-stock highlighting
-- Inventory overview panel
+Services are wired in `main.py` and injected into the UI.
 
-### Sales
-- Cart-based sale workflow
-- Automatic stock validation
-- Automatic stock deduction
-- USD → ARS conversion at time of sale
-- Line-level profit calculation
-- Detailed sale history
-- 7-day KPI revenue and profit tracking
+The UI never instantiates repositories directly.
 
-### Restock / Purchases
-- Manual restock interface
-- Vendor and notes tracking
-- Purchase history tracking
-- Automatic stock increase
-- Weighted average cost recalculation
+---
 
-Weighted cost formula:
+# 💼 Business Logic
+
+### Weighted Cost Formula
+
+Used to recalculate inventory cost after restocking.
 
 ```
 new_cost = (old_stock * old_cost + qty * unit_cost) / (old_stock + qty)
@@ -150,7 +220,7 @@ This guarantees accurate future profit margins.
 
 ---
 
-## Excel Integration
+# 📊 Excel Integration
 
 ### Import
 
@@ -161,23 +231,28 @@ sku | name | cost_usd | price_usd | stock | min_stock
 ```
 
 Import behavior:
+
 - Existing stock is never overwritten
-- If Excel stock > current stock → restock is logged as purchase
-- New products are created with stock logged as purchase
-- Full audit trail maintained
+- If Excel stock > current stock → restock recorded as purchase
+- New products are created automatically
+- Full audit trail is preserved
+
+---
 
 ### Export
 
-Generated Excel workbook includes:
+Generated Excel reports include:
 
-#### Summary Sheet
+**Summary Sheet**
+
 - Sales count
 - Revenue (USD / ARS)
 - Gross profit
 - Total restock spending
 - Net profit
 
-#### Sales Detail Sheet
+**Sales Detail Sheet**
+
 - Sale ID
 - Product
 - Quantity
@@ -187,7 +262,8 @@ Generated Excel workbook includes:
 - Line profit
 - Margin %
 
-#### Purchases Sheet
+**Purchases Sheet**
+
 - Purchase ID
 - Vendor
 - Product
@@ -195,15 +271,14 @@ Generated Excel workbook includes:
 - Unit cost
 - Line total
 
-All sheets include financial formatting and structured tables.
-
 ---
 
-## Database
+# 🗄 Database
 
-SQLite with foreign keys enabled.
+SQLite database with foreign keys enabled.
 
-Tables:
+Tables include:
+
 - `products`
 - `sales`
 - `sale_items`
@@ -211,33 +286,39 @@ Tables:
 - `purchase_items`
 - `fx_rates`
 
-Transactional integrity is enforced for both sales and purchases.
+Transactional integrity is enforced for both **sales and purchases**.
 
 ---
 
-### Security and Operations
-- Role-based permission matrix per action (admin/seller/viewer).
-- Password hashing with PBKDF2-SHA256 and stronger credential policy (min 8, letters + numbers).
-- Bootstrap admin with temporary one-time credential stored in local restricted file (`.admin_bootstrap_pin`) and forced password change on first login.
-- Login protection with temporary lockout after repeated failed attempts (persisted in DB).
-- One-click encrypted local SQLite backup (`.db.enc`) with retention and restore support using OpenSSL AES-256 + PBKDF2 with HMAC integrity checks.
-- Operational actions (backup, restore, health check, diagnostics export) are admin-only in the UI.
-- Optional update source override via `ISM_UPDATE_SOURCE` (file path or URL).
+# 🔒 Security and Operations
+
+- Role-based permissions (admin / seller / viewer)
+- Password hashing using **PBKDF2-SHA256**
+- Login protection with lockout after repeated failures
+- Encrypted SQLite backup (`AES-256`)
+- Admin-only operational actions
+- Optional update source override using `ISM_UPDATE_SOURCE`
 
 ---
 
-## Key Design Goals
+# 🧪 Testing Strategy
 
-- Clean separation of concerns
-- Service-oriented business logic
-- Accurate financial computation
-- Traceable stock movements
-- Professional reporting output
-- Production-ready structure
+The project includes a pytest suite focused on validating business correctness and operational safety.
+
+Tests cover:
+
+- Business invariants and financial calculations
+- Sales validation and FX conversion
+- Purchase atomicity and transaction safety
+- Security rules and role permissions
+- Backup and authentication policies
+- Update operations and migrations
+
+The UI layer is intentionally excluded from tests to keep validation focused on business logic.
 
 ---
 
-## Technical Stack
+# 🧰 Technical Stack
 
 - Python 3.10+
 - Tkinter
@@ -245,50 +326,27 @@ Transactional integrity is enforced for both sales and purchases.
 - requests
 - openpyxl
 - Structured logging
+- pytest
 
 ---
 
-## Author
+# 👨‍💻 Author
 
-Lautaro Cuello  
-Python Developer
+**Lautaro Cuello**
 
+Python Developer  
 
-## License
-
-MIT (see `LICENSE`).
-
----
-
-## Quality Checks
-
-Run locally before sharing or releasing:
-
-```bash
-pytest -q
-ruff check .
-```
+GitHub:  
+https://github.com/Lautarocuello98
 
 ---
 
-## Portfolio Positioning (for client acquisition)
+# 📄 License
 
-Use this project as a **business solution case study**, not only as a code sample.
+This project is licensed under the MIT License.
 
-Suggested pitch:
+See the **LICENSE** file for details.
 
-- Problem: manual stock control, no margin visibility, and error-prone sales records.
-- Solution: desktop app with traceable inventory/sales/purchases, role-based access, backup/restore, and professional reports.
-- Outcome: fewer stock mistakes, faster decision-making, and clearer profitability tracking.
+---
 
-Recommended portfolio assets:
-
-1. 60-90s demo video (login -> create product -> sale -> report export).
-2. 3 screenshots: dashboard, sale workflow, generated report.
-3. 1-page case brief with target user, key features, and implementation timeline.
-
-Quick credibility checklist before sharing with prospects:
-
-- Keep tests green (`pytest -q`) and lint clean (`ruff check .`).
-- Replace placeholder support/contact emails in packaging metadata.
-- Include installer/signing status and support SLA in your proposal.
+⭐ If you found this project useful, consider giving this repository a star.
