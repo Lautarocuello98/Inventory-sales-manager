@@ -3,6 +3,13 @@ set -euo pipefail
 
 python -m pytest -q
 ruff check .
-python -m py_compile $(rg --files src | tr '\n' ' ')
+
+if command -v rg >/dev/null 2>&1; then
+  mapfile -t py_files < <(rg --files src -g "*.py")
+else
+  mapfile -t py_files < <(find src -type f -name "*.py")
+fi
+
+python -m py_compile "${py_files[@]}"
 
 echo "Release checks passed"

@@ -221,6 +221,8 @@ Transactional integrity is enforced for both sales and purchases.
 - Bootstrap admin with temporary one-time credential stored in local restricted file (`.admin_bootstrap_pin`) and forced password change on first login.
 - Login protection with temporary lockout after repeated failed attempts (persisted in DB).
 - One-click encrypted local SQLite backup (`.db.enc`) with retention and restore support using OpenSSL AES-256 + PBKDF2 with HMAC integrity checks.
+- Operational actions (backup, restore, health check, diagnostics export) are admin-only in the UI.
+- Optional update source override via `ISM_UPDATE_SOURCE` (file path or URL).
 
 ---
 

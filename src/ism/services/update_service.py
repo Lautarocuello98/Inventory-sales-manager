@@ -15,16 +15,20 @@ class UpdateInfo:
 
 
 class UpdateService:
-    def __init__(self, current_version: str, source: str | Path):
+    def __init__(self, current_version: str, source: str | Path | None = None):
         self.current_version = current_version
-        self.source = str(source)
+        self.source = (str(source).strip() if source is not None else "")
 
     def _read_manifest(self) -> dict:
         src = self.source.strip()
+        if not src:
+            return {}
         if src.startswith("http://") or src.startswith("https://"):
             with urllib.request.urlopen(src, timeout=5) as r:  # nosec B310
                 return json.loads(r.read().decode("utf-8"))
         path = Path(src)
+        if not path.exists():
+            return {}
         return json.loads(path.read_text(encoding="utf-8"))
 
     @staticmethod
@@ -40,7 +44,9 @@ class UpdateService:
 
     def check_for_update(self) -> UpdateInfo | None:
         manifest = self._read_manifest()
-        latest = str(manifest.get("version", "0.0.0"))
+        latest = str(manifest.get("version", "")).strip()
+        if not latest:
+            return None
         if self._to_tuple(latest) <= self._to_tuple(self.current_version):
             return None
         return UpdateInfo(

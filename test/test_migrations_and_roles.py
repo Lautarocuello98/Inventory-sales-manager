@@ -93,3 +93,51 @@ def test_migration_failure_restores_db(tmp_path: Path):
     conn.close()
 
     assert after == before
+
+
+def test_migrations_repair_missing_versions_even_with_higher_version_present(tmp_path: Path):
+    db = tmp_path / "missing_version.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM schema_migrations WHERE version = 3")
+    conn.commit()
+    conn.close()
+
+    repo.run_migrations()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute("SELECT version FROM schema_migrations ORDER BY version")
+    versions = [int(r[0]) for r in cur.fetchall()]
+    conn.close()
+
+    assert 3 in versions
+    assert max(versions) >= 4
+
+
+def test_migration_v4_creates_reporting_indexes(tmp_path: Path):
+    db = tmp_path / "indexes.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    conn = repo._conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT name FROM sqlite_master
+        WHERE type='index' AND name IN (
+            'idx_sales_datetime',
+            'idx_purchases_datetime',
+            'idx_stock_ledger_product_datetime'
+        )
+        """
+    )
+    names = {str(r[0]) for r in cur.fetchall()}
+    conn.close()
+
+    assert "idx_sales_datetime" in names
+    assert "idx_purchases_datetime" in names
+    assert "idx_stock_ledger_product_datetime" in names

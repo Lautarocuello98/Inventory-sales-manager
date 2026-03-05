@@ -29,13 +29,19 @@ class BackupService:
 
     def restore_backup(self, backup_file: Path | str) -> Path:
         backup_path = Path(backup_file)
-        key = self._get_or_create_key(self.backup_dir / ".backup.key")
+        if not backup_path.exists():
+            raise FileNotFoundError(f"Backup file not found: '{backup_path}'.")
+        if backup_path.suffixes[-2:] != [".db", ".enc"]:
+            raise ValueError("Backup file must use '.db.enc' extension.")
+        key = self._read_existing_key(self.backup_dir / ".backup.key")
 
         encrypted = backup_path.read_bytes()
         payload = self._decrypt_payload(encrypted, key)
 
-        self.db_path.unlink(missing_ok=True)
-        self.db_path.write_bytes(payload)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_restore = self.db_path.with_suffix(f"{self.db_path.suffix}.restore_tmp")
+        tmp_restore.write_bytes(payload)
+        tmp_restore.replace(self.db_path)
         return self.db_path
 
     def _get_or_create_key(self, key_path: Path) -> bytes:
@@ -47,6 +53,16 @@ class BackupService:
             key_path.chmod(0o600)
         except Exception:
             pass
+        return key
+
+    def _read_existing_key(self, key_path: Path) -> bytes:
+        if not key_path.exists():
+            raise FileNotFoundError(
+                f"Backup key not found at '{key_path}'. Restore requires the original key file."
+            )
+        key = key_path.read_bytes().strip()
+        if len(key) != 32:
+            raise ValueError("Backup key is invalid or corrupted.")
         return key
 
     def _enforce_retention(self, max_backups: int) -> None:
@@ -86,7 +102,10 @@ class BackupService:
         if decrypt:
             cmd.insert(3, "-d")
 
-        proc = subprocess.run(cmd, input=data, capture_output=True)
+        try:
+            proc = subprocess.run(cmd, input=data, capture_output=True)
+        except FileNotFoundError as e:
+            raise ValueError("OpenSSL executable not found in PATH. Backup encryption is unavailable.") from e
         if proc.returncode != 0:
             raise ValueError(f"Backup cipher operation failed: {proc.stderr.decode('utf-8', errors='ignore').strip()}")
         return proc.stdout

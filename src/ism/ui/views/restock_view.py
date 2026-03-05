@@ -135,7 +135,7 @@ class RestockView:
         choices = []
         mapping = {}
         for p in rows:
-            label = f"{p.sku} — {p.name} (stock: {p.stock})"
+            label = f"{p.sku} - {p.name} (stock: {p.stock})"
             choices.append(label)
             mapping[label] = p.sku
         self.restock_all_choices = choices

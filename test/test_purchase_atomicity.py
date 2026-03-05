@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from ism.repositories.sqlite_repo import SqliteRepository
 from ism.services.inventory_service import InventoryService
 from ism.services.purchase_service import PurchaseService
@@ -67,3 +69,32 @@ def test_purchase_rolls_back_when_repository_fails(tmp_path: Path):
 
     purchases_rows = repo.list_purchases_between("2000-01-01 00:00:00", "2100-01-01 00:00:00")
     assert purchases_rows == []
+
+
+def test_purchase_consolidates_repeated_product_lines(tmp_path: Path):
+    db = tmp_path / "consolidate.db"
+    repo = SqliteRepository(db)
+    repo.init_db()
+
+    inventory = InventoryService(repo)
+    purchases = PurchaseService(repo)
+    pid = inventory.add_product("SKU-2", "Consolidate", 2.0, 5.0, 0, 0)
+
+    purchase_id = purchases.create_purchase(
+        vendor="TEST",
+        notes="duplicate lines",
+        items=[
+            {"product_id": pid, "qty": 2, "unit_cost_usd": 4.0},
+            {"product_id": pid, "qty": 3, "unit_cost_usd": 10.0},
+        ],
+    )
+
+    product = repo.get_product_by_id(pid)
+    assert product is not None
+    assert product.stock == 5
+    assert product.cost_usd == pytest.approx(7.6)
+
+    lines = repo.purchase_items_for_purchase(purchase_id)
+    assert len(lines) == 1
+    assert lines[0].qty == 5
+    assert lines[0].line_total_usd == pytest.approx(38.0)

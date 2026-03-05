@@ -32,7 +32,7 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "InventorySalesManager" --paths src src/ism/main.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name "InventorySalesManager" --paths src --add-data "release/latest.json;release" src/ism/main.py
 
       - name: Zip
         run: |
@@ -66,7 +66,7 @@ jobs:
 
       - name: Build mac binary
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "InventorySalesManager" --paths src src/ism/main.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name "InventorySalesManager" --paths src --add-data "release/latest.json:release" src/ism/main.py
 
       - name: Zip
         run: |

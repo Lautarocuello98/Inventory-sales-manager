@@ -42,3 +42,25 @@ def test_create_sale_rejects_oversell_when_same_product_is_repeated(tmp_path: Pa
                 {"product_id": pid, "qty": 3, "unit_price_usd": 10.0},
             ],
         )
+
+
+def test_create_sale_consolidates_repeated_product_lines(tmp_path: Path):
+    repo, pid = _setup(tmp_path)
+    sales = SalesService(repo, FixedFxService())
+
+    sale_id = sales.create_sale(
+        notes="duplicate lines",
+        items=[
+            {"product_id": pid, "qty": 2, "unit_price_usd": 10.0},
+            {"product_id": pid, "qty": 3, "unit_price_usd": 12.0},
+        ],
+    )
+
+    lines = sales.sale_items_for_sale(sale_id)
+    assert len(lines) == 1
+    assert lines[0].qty == 5
+    assert lines[0].line_total_usd == pytest.approx(56.0)
+
+    prod = repo.get_product_by_id(pid)
+    assert prod is not None
+    assert prod.stock == 0

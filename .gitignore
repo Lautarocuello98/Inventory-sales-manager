@@ -11,11 +11,13 @@ build/
 *.egg
 inventory_sales_manager.egg-info
 .pytest_cache
-release/
 
 # Local data / backups / keys
 *.db
 *.db.enc
 .backup.key
 backups/
-release/latest.json
+
+# Keep release manifest versioned while ignoring other release artifacts.
+release/*
+!release/latest.json

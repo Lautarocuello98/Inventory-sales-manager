@@ -122,7 +122,7 @@ class SalesView:
         choices = []
         mapping = {}
         for p in rows:
-            label = f"{p.sku} — {p.name} (stock: {p.stock})"
+            label = f"{p.sku} - {p.name} (stock: {p.stock})"
             choices.append(label)
             mapping[label] = p.sku
         self.sale_all_choices = choices
@@ -202,7 +202,7 @@ class SalesView:
 
         try:
             fx = self.app.fx.get_today_rate()
-            self.app.fx_var.set(f"FX (USD→ARS): {fx:.4f}")
+            self.app.fx_var.set(f"FX (USD->ARS): {fx:.4f}")
             self.sale_total_var.set(f"Total USD: {total_usd:.2f} | Total ARS: {(total_usd * fx):.2f}")
         except Exception:
             self.sale_total_var.set(f"Total USD: {total_usd:.2f} | Total ARS: (update FX)")

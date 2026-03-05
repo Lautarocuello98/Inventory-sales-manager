@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Callable, Iterable, Optional
 
-from collections import Counter
 import logging
+import sqlite3
 from ism.domain.errors import (
     FxUnavailableError,
     InsufficientStockError,
@@ -28,16 +28,9 @@ class SalesService:
         self.fx = fx_service
         self.uow_factory = uow_factory or (lambda: RepositoryUnitOfWork(repo))
 
-    def create_sale(self, notes: Optional[str], items: Iterable[dict], actor_user_id: int | None = None) -> int:
-        """
-        items: [{product_id, qty, unit_price_usd}]
-        """
-        items = list(items)
-        if not items:
-            raise ValidationError("Cart is empty.")
+    def _normalize_items(self, items: list[dict]) -> list[dict]:
+        grouped: dict[int, dict[str, float | int]] = {}
 
-        # Validate items and aggregate qty by product to avoid overselling
-        qty_by_product: Counter[int] = Counter()
         for it in items:
             qty = int(it["qty"])
             unit_price = float(it["unit_price_usd"])
@@ -47,12 +40,41 @@ class SalesService:
                 raise ValidationError("Unit price must be > 0.")
 
             product_id = int(it["product_id"])
-            qty_by_product[product_id] += qty
+            if product_id not in grouped:
+                grouped[product_id] = {"qty": qty, "gross_usd": qty * unit_price}
+            else:
+                grouped[product_id]["qty"] = int(grouped[product_id]["qty"]) + qty
+                grouped[product_id]["gross_usd"] = float(grouped[product_id]["gross_usd"]) + (qty * unit_price)
 
+        normalized: list[dict] = []
+        for product_id, bucket in grouped.items():
+            qty = int(bucket["qty"])
+            gross_usd = float(bucket["gross_usd"])
+            normalized.append(
+                {
+                    "product_id": product_id,
+                    "qty": qty,
+                    "unit_price_usd": (gross_usd / qty),
+                }
+            )
+        return normalized
+
+    def create_sale(self, notes: Optional[str], items: Iterable[dict], actor_user_id: int | None = None) -> int:
+        """
+        items: [{product_id, qty, unit_price_usd}]
+        """
+        items = list(items)
+        if not items:
+            raise ValidationError("Cart is empty.")
+        items = self._normalize_items(items)
+
+        # Validate normalized items.
+        for it in items:
+            product_id = int(it["product_id"])
             prod = self.repo.get_product_by_id(product_id)
             if not prod:
                 raise NotFoundError("Product not found.")
-            if qty_by_product[product_id] > int(prod.stock):
+            if int(it["qty"]) > int(prod.stock):
                 raise InsufficientStockError(f"Not enough stock for {prod.sku}. Available: {prod.stock}")
 
         try:
@@ -62,8 +84,18 @@ class SalesService:
         except (TypeError, ValueError) as e:
             raise FxUnavailableError(str(e)) from e
 
-        with self.uow_factory() as uow:
-            sale_id = uow.create_sale(fx, notes, items, actor_user_id=actor_user_id)
+        try:
+            with self.uow_factory() as uow:
+                sale_id = uow.create_sale(fx, notes, items, actor_user_id=actor_user_id)
+        except sqlite3.IntegrityError as e:
+            raise ValidationError("Sale has invalid or duplicated lines.") from e
+        except ValueError as e:
+            msg = str(e)
+            if "Not enough stock" in msg:
+                raise InsufficientStockError(msg) from e
+            if "Product not found" in msg:
+                raise NotFoundError("Product not found.") from e
+            raise ValidationError(msg) from e
         log.info("sale_created sale_id=%s items=%s fx=%.4f actor=%s", sale_id, len(items), fx, actor_user_id)
         return sale_id
 

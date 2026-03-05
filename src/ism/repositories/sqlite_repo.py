@@ -33,17 +33,18 @@ class SqliteRepository:
             cur = conn.cursor()
             cur.execute("BEGIN")
             cur.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
-            cur.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
-            current_version = int(cur.fetchone()[0])
+            cur.execute("SELECT version FROM schema_migrations")
+            applied_versions = {int(r[0]) for r in cur.fetchall()}
 
             migrations = [
                 (1, self._migration_v1_base),
                 (2, self._migration_v2_constraints_and_ledger),
                 (3, self._migration_v3_auth_hardening),
+                (4, self._migration_v4_indexes),
             ]
 
             for version, migration in migrations:
-                if version <= current_version:
+                if version in applied_versions:
                     continue
                 migration(cur)
                 cur.execute(
@@ -204,6 +205,16 @@ class SqliteRepository:
             WHERE username = 'admin'
             """
         )
+
+    def _migration_v4_indexes(self, cur: sqlite3.Cursor) -> None:
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_products_active_name ON products(active, name)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sales_datetime ON sales(datetime)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_datetime ON purchases(datetime)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items(purchase_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchase_items_product_id ON purchase_items(product_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_ledger_product_datetime ON stock_ledger(product_id, datetime DESC)")
 
     def _ensure_bootstrap_admin(self) -> None:
         conn = self._conn()
@@ -796,6 +807,7 @@ class SqliteRepository:
 
     # ---------- Sales ----------
     def create_sale(self, datetime_iso: str, fx_usd_ars: float, notes: Optional[str], items: Iterable[dict], actor_user_id: Optional[int] = None) -> int:
+        items = list(items)
         conn = self._conn()
         cur = conn.cursor()
 

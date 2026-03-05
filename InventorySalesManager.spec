@@ -5,7 +5,7 @@ a = Analysis(
     ['src\\ism\\main.py'],
     pathex=['src'],
     binaries=[],
-    datas=[],
+    datas=[('release\\latest.json', 'release')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

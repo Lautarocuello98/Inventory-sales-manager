@@ -52,7 +52,7 @@ class App(tk.Tk):
         self.db_path = db_path
         self.logs_dir = logs_dir
 
-        self.fx_var = tk.StringVar(value="FX (USD→ARS): not loaded")
+        self.fx_var = tk.StringVar(value="FX (USD->ARS): not loaded")
         self.status_var = tk.StringVar(value="")
         self._toast_after_id = None
 
@@ -257,11 +257,35 @@ class App(tk.Tk):
             style="Subtitle.TLabel",
             wraplength=280,
         ).pack(anchor="w", pady=(3, 6))
-        ttk.Button(header, text="🔄 Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
-        ttk.Button(header, text="💾 Create backup", style="Primary.TButton", command=self.create_backup).pack(fill="x", pady=(6, 0))
-        ttk.Button(header, text="🧪 Health check", style="Ghost.TButton", command=self.run_health_check).pack(fill="x", pady=(6, 0))
-        ttk.Button(header, text="📦 Export diagnostics", style="Ghost.TButton", command=self.export_diagnostics).pack(fill="x", pady=(6, 0))
-        ttk.Button(header, text="🛟 Restore latest backup", style="Ghost.TButton", command=self.restore_latest_backup).pack(fill="x", pady=(6, 0))
+        ttk.Button(header, text="Refresh data", style="Primary.TButton", command=self.refresh_all).pack(fill="x", pady=(4, 0))
+        ttk.Button(
+            header,
+            text="Create backup",
+            style="Primary.TButton",
+            command=self.create_backup,
+            state=("normal" if self.can_action("create_backup") else "disabled"),
+        ).pack(fill="x", pady=(6, 0))
+        ttk.Button(
+            header,
+            text="Health check",
+            style="Ghost.TButton",
+            command=self.run_health_check,
+            state=("normal" if self.can_action("run_health_check") else "disabled"),
+        ).pack(fill="x", pady=(6, 0))
+        ttk.Button(
+            header,
+            text="Export diagnostics",
+            style="Ghost.TButton",
+            command=self.export_diagnostics,
+            state=("normal" if self.can_action("export_diagnostics") else "disabled"),
+        ).pack(fill="x", pady=(6, 0))
+        ttk.Button(
+            header,
+            text="Restore latest backup",
+            style="Ghost.TButton",
+            command=self.restore_latest_backup,
+            state=("normal" if self.can_action("restore_backup") else "disabled"),
+        ).pack(fill="x", pady=(6, 0))
 
         kpi = ttk.LabelFrame(self.sidebar, text="KPIs (7d)")
         kpi.pack(fill="x", padx=8)
@@ -309,7 +333,7 @@ class App(tk.Tk):
         panel = ttk.Frame(self.nb, style="App.TFrame")
         self.nb.add(panel, text="Admin")
 
-        ttk.Label(panel, text="Admin · User Management", style="Title.TLabel").pack(anchor="w", padx=12, pady=(12, 6))
+        ttk.Label(panel, text="Admin - User Management", style="Title.TLabel").pack(anchor="w", padx=12, pady=(12, 6))
         ttk.Label(panel, text="Manage users and passwords from this dedicated section.", style="Subtitle.TLabel").pack(anchor="w", padx=12, pady=(0, 8))
 
         forms = ttk.Frame(panel, style="App.TFrame")
@@ -461,7 +485,7 @@ class App(tk.Tk):
         return self.auth.can(self.current_user, action)
 
     def toast(self, msg: str, kind: str = "info", ms: int = 2500):
-        prefix = {"info": "ℹ ", "success": "✅ ", "warn": "⚠ ", "error": "❌ "}.get(kind, "")
+        prefix = {"info": "[i] ", "success": "[ok] ", "warn": "[!] ", "error": "[x] "}.get(kind, "")
         self.status_var.set(prefix + msg)
         if self._toast_after_id is not None:
             try:
@@ -473,6 +497,8 @@ class App(tk.Tk):
     
     def run_health_check(self):
         try:
+            if not self.can_action("run_health_check"):
+                raise PermissionError("Your role cannot run health checks.")
             rep = self.operations.run_health_check()
             msg = f"Integrity: {rep.sqlite_integrity} | DB: {rep.db_size_bytes} bytes | logs: {rep.logs_count}"
             messagebox.showinfo("Health check", msg)
@@ -482,15 +508,19 @@ class App(tk.Tk):
 
     def export_diagnostics(self):
         try:
+            if not self.can_action("export_diagnostics"):
+                raise PermissionError("Your role cannot export diagnostics.")
             path = self.operations.export_diagnostics()
             self.toast(f"Diagnostics exported: {path.name}", kind="success")
         except Exception as e:
             self.handle_error("Diagnostics", e, "Could not export diagnostics.")
 
     def restore_latest_backup(self):
-        if not messagebox.askyesno("Restore backup", "This will replace current DB with latest backup. Continue?"):
-            return
         try:
+            if not self.can_action("restore_backup"):
+                raise PermissionError("Your role cannot restore backups.")
+            if not messagebox.askyesno("Restore backup", "This will replace current DB with latest backup. Continue?"):
+                return
             self.operations.restore_latest_backup(self.backup)
             self.refresh_all(silent_fx=True, show_toast=False)
             self.toast("Latest backup restored.", kind="warn", ms=3000)
@@ -511,6 +541,8 @@ class App(tk.Tk):
 
     def create_backup(self):
         try:
+            if not self.can_action("create_backup"):
+                raise PermissionError("Your role cannot create backups.")
             path = self.backup.create_backup()
             self.toast(f"Backup created: {path.name}", kind="success")
         except Exception as e:
@@ -519,7 +551,7 @@ class App(tk.Tk):
     def update_fx(self, silent: bool = False):
         try:
             rate = self.fx.get_today_rate()
-            self.fx_var.set(f"FX (USD→ARS): {rate:.4f}")
+            self.fx_var.set(f"FX (USD->ARS): {rate:.4f}")
             if not silent:
                 self.toast(f"FX updated: {rate:.4f}", kind="success")
         except Exception as e:
@@ -563,10 +595,10 @@ class App(tk.Tk):
         rows = self.inventory.list_products()
         low = [p for p in rows if int(p.stock) <= int(p.min_stock)]
         if not low:
-            self.low_list.insert(tk.END, "✅ No low stock products")
+            self.low_list.insert(tk.END, "No low stock products")
             return
         for p in low:
-            self.low_list.insert(tk.END, f"{p.sku} — {p.name} ({p.stock}/{p.min_stock})")
+            self.low_list.insert(tk.END, f"{p.sku} - {p.name} ({p.stock}/{p.min_stock})")
             self._low_items.append(p.sku)
 
     def on_low_stock_open(self, _evt=None):

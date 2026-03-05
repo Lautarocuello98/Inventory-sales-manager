@@ -31,6 +31,10 @@ PERMISSIONS: dict[str, set[str]] = {
     "import_excel": {"admin", "seller"},
     "export_report": {"admin", "seller", "viewer"},
     "manage_users": {"admin"},
+    "run_health_check": {"admin"},
+    "create_backup": {"admin"},
+    "export_diagnostics": {"admin"},
+    "restore_backup": {"admin"},
 }
 
 class AuthService:

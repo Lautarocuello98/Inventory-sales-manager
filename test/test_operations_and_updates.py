@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from ism.repositories.sqlite_repo import SqliteRepository
 from ism.services.backup_service import BackupService
@@ -6,6 +7,13 @@ from ism.services.inventory_service import InventoryService
 from ism.services.operations_service import OperationsService
 from ism.services.update_service import UpdateService
 from ism.application.container import build_container
+
+
+def _pyproject_version() -> str:
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    m = re.search(r'^\s*version\s*=\s*"([^"]+)"\s*$', pyproject.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    assert m is not None
+    return str(m.group(1))
 
 
 def test_operations_health_check_and_diagnostics_export(tmp_path: Path):
@@ -78,8 +86,35 @@ def test_update_service_supports_prefixed_and_partial_versions(tmp_path: Path):
     assert info.latest_version == "v1.1"
 
 
+def test_update_service_returns_none_when_source_does_not_exist():
+    svc = UpdateService(current_version="1.0.0", source=Path("not_found_latest.json"))
+    assert svc.check_for_update() is None
+
+
+def test_update_service_returns_none_when_manifest_has_no_version(tmp_path: Path):
+    manifest = tmp_path / "latest.json"
+    manifest.write_text('{"download_url":"https://example.com/dl"}', encoding="utf-8")
+
+    svc = UpdateService(current_version="1.0.0", source=manifest)
+    assert svc.check_for_update() is None
+
+
 def test_container_uses_pyproject_version_for_updates(tmp_path: Path):
     db = tmp_path / "version.db"
     container = build_container(db)
 
-    assert container.updates.current_version == "1.1.3"
+    assert container.updates.current_version == _pyproject_version()
+
+
+def test_container_prefers_env_update_source(tmp_path: Path, monkeypatch):
+    manifest = tmp_path / "custom_latest.json"
+    manifest.write_text(
+        '{"version":"9.9.9","download_url":"https://example.com/custom","notes":"Custom source"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISM_UPDATE_SOURCE", str(manifest))
+
+    db = tmp_path / "version_env.db"
+    container = build_container(db)
+
+    assert container.updates.source == str(manifest)
